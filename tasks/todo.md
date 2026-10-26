@@ -63,7 +63,7 @@ Everything runs offline (template hosts, rule-based gate, synthetic voice). Real
 
 ## Task 12: Hardening and deploy — mostly DONE (PR #5)
 - [x] Accelerated soak with a TTS outage: 30-minute run passed (0 unhandled, bed + station ID fallback)
-- [ ] Full 6-hour soak (the accelerated 6 h run was stopped: the machine ran low on memory)
+- [x] Full 6-hour soak (accelerated): 0 unhandled, TTS outage handled, memory plateaus ~100 MB
 - [x] Crash fallback per block, hourly budget cap, per-block cost logging
 - [x] Dockerfile (built and started locally), `PORT` support for Railway/Render
 - [ ] Real-time 6-hour soak and a public deploy with a phone number (needs accounts and keys)

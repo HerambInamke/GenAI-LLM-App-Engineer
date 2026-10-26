@@ -1,20 +1,40 @@
 {
-  "hours": 1.0,
+  "hours": 6.0,
   "mode": "accelerated, offline providers",
-  "wall_seconds": 46,
-  "blocks": 83,
+  "wall_seconds": 229,
+  "blocks": 126,
   "unhandled": 0,
-  "tts_fallbacks": 34,
+  "tts_fallbacks": 28,
   "rss_mb": {
-    "start": 64,
-    "peak": 75,
-    "end": 75,
+    "start": 63,
+    "peak": 100,
+    "end": 100,
     "samples": [
-      64,
-      73,
-      74,
-      75
+      63,
+      96,
+      68,
+      82,
+      96,
+      83,
+      97,
+      83,
+      97,
+      97,
+      97,
+      97,
+      98,
+      98,
+      98,
+      84,
+      84,
+      98,
+      98,
+      99,
+      99,
+      99,
+      99,
+      100
     ]
   },
-  "finished": "2026-10-26T15:11:56.244394+00:00"
+  "finished": "2026-10-26T15:51:44.239068+00:00"
 }
