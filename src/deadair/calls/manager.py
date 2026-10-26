@@ -17,6 +17,7 @@ from deadair.gate.moderation import is_clean
 
 log = logging.getLogger(__name__)
 MAX_WAITING = 3
+MAX_UTTERANCE = 300
 
 
 @dataclass
@@ -79,6 +80,7 @@ class CallManager:
         c = self.callers.get(caller_id)
         if not c or c.hung_up or not text.strip():
             return False
+        text = text.strip()[:MAX_UTTERANCE]  # long STT runs or pasted text are cut, not aired whole
         self._log(c, f"caller: {text}")
         if not is_clean(text):
             self.drop(caller_id, "blocklist")

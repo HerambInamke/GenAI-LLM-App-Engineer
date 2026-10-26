@@ -1,5 +1,9 @@
 # Stations, budgets and models (NFR-10). Persona ids refer to config/personas/<id>.yaml.
 budget_usd_per_hour: 2.0
+recording_retention_days: 14  # older block recordings and call transcripts are deleted
+pricing:  # estimates: check them against your ElevenLabs and Deepgram plans
+  tts_usd_per_1k_chars: 0.15
+  stt_usd_per_minute: 0.0077
 llm:
   host_model: claude-opus-5-5
   fast_model: claude-haiku-5-5

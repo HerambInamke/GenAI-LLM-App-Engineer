@@ -27,6 +27,26 @@ FRAME = int(SR * FRAME_S)
 MAX_AHEAD = 2.0
 
 
+def prune_recordings(root: Path, days: int, now: float | None = None) -> int:
+    """Delete recordings and call transcripts older than `days`. Returns how many were removed."""
+    cutoff = (now or time.time()) - days * 86400
+    removed = 0
+    for p in root.glob("*/*"):
+        if p.suffix in {".mp3", ".txt"} and p.stat().st_mtime < cutoff:
+            with contextlib.suppress(OSError):  # a file still open on Windows is skipped
+                p.unlink()
+                removed += 1
+    return removed
+
+
+def dir_size_mb(root: Path) -> float:
+    return (
+        sum(p.stat().st_size for p in root.rglob("*") if p.is_file()) / 2**20
+        if root.exists()
+        else 0.0
+    )
+
+
 class Broadcaster:
     def __init__(
         self,
@@ -59,6 +79,8 @@ class Broadcaster:
         self.speaking_since: float | None = None
         self.frames = 0
         self.tts_failures = 0
+        self.meter = None  # the station's CostMeter, attached by the runtime (NFR-6)
+        self.tts_usd_per_1k_chars = 0.0
 
     @staticmethod
     def _encoder() -> lameenc.Encoder:
@@ -129,6 +151,8 @@ class Broadcaster:
             await asyncio.sleep(FRAME_S if self.realtime else 0)
 
     async def _speak(self, text: str, voice_id: str) -> None:
+        if self.meter and getattr(self.tts, "billable", False):
+            self.meter.add_usd(len(text) / 1000 * self.tts_usd_per_1k_chars)
         first = True
         async for pcm in self.tts.synth(text, voice_id):
             self.enqueue(pcm * 0.9, True)

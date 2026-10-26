@@ -24,6 +24,7 @@ class DeepgramSTT:
         self.ws = None
         self.reader: asyncio.Task | None = None
         self.parts: list[str] = []
+        self.bytes_sent = 0  # 8 kHz mu-law: 8000 bytes per second, for cost logging
 
     async def __aenter__(self):
         import websockets
@@ -42,7 +43,12 @@ class DeepgramSTT:
             self.reader.cancel()
 
     async def send(self, mulaw: bytes) -> None:
+        self.bytes_sent += len(mulaw)
         await self.ws.send(mulaw)
+
+    @property
+    def minutes(self) -> float:
+        return self.bytes_sent / 8000 / 60
 
     async def _read(self) -> None:
         async for msg in self.ws:

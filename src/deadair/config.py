@@ -31,6 +31,13 @@ class LLMConfig(BaseModel):
     fast_model: str
 
 
+class Pricing(BaseModel):
+    """Voice prices for the per-block cost log (NFR-6). LLM prices live in providers/llm.py."""
+
+    tts_usd_per_1k_chars: float = Field(0.15, ge=0)
+    stt_usd_per_minute: float = Field(0.0077, ge=0)
+
+
 class FeedSource(BaseModel):
     name: str
     kind: Literal["rss", "newsapi"]
@@ -46,7 +53,9 @@ class FeedConfig(BaseModel):
 
 class Config(BaseModel):
     budget_usd_per_hour: float = Field(gt=0)
+    recording_retention_days: int = Field(14, ge=1)
     llm: LLMConfig
+    pricing: Pricing = Pricing()
     stations: list[Station]
     personas: dict[str, Persona]
     feeds: FeedConfig

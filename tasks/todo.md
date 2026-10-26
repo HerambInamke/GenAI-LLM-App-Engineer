@@ -93,3 +93,24 @@ Everything runs offline (template hosts, rule-based gate, synthetic voice). Real
 ### Task 17: `python -m deadair doctor` — DONE
 - [x] Reports config, DB, and each provider: key present, key works, persona voice ids exist
 **Verify:** offline run prints a clear table; provider checks tested with mocked HTTP
+
+## Phase 7: operations hardening (no keys needed)
+
+### Task 18: Full cost accounting (NFR-6, TRD T-8) — DONE
+- [x] TTS characters and STT minutes are priced from `config/stations.yaml` and added to each block's `cost_usd`
+- [x] The hourly budget cap therefore covers voice spend too
+**Verify:** test with a priced fake TTS; block cost includes it
+
+### Task 19: Recording retention — DONE
+- [x] Recordings and call transcripts older than `retention_days` (config) are deleted hourly
+- [x] `doctor` reports recording disk use
+**Verify:** test with back-dated files
+
+### Task 20: Caller-input hardening — DONE
+- [x] Text call lines capped at 300 chars; per-client rate limits on call-in, votes and ratings
+- [x] Caller words reach the host prompt as quoted, untrusted text with an instruction not to follow them
+**Verify:** tests for 413/422 and 429 responses and the prompt framing
+
+### Task 21: Structured logs (NFR-9, TRD T-10) — DONE
+- [x] `DEADAIR_LOG_JSON=1` switches logging to one JSON object per line
+**Verify:** test parses emitted lines as JSON

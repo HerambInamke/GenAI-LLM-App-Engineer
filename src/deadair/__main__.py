@@ -16,6 +16,7 @@ from deadair.db import connect
 from deadair.feed.pollers import poll_all
 from deadair.feed.store import FeedStore
 from deadair.hosts.memory import repetition_violations
+from deadair.logs import setup_logging
 from deadair.providers.llm import get_llm
 from deadair.station import Event, Station
 
@@ -69,9 +70,7 @@ def main() -> None:
     s.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
     args = ap.parse_args()
     quiet = args.cmd == "text" and not args.verbose
-    logging.basicConfig(
-        level=logging.WARNING if quiet else logging.INFO, format="%(asctime)s %(name)s %(message)s"
-    )
+    setup_logging(logging.WARNING if quiet else logging.INFO)
     db_path = os.environ.get("DEADAIR_DB", "data/deadair.db")
     if args.cmd == "doctor":
         from deadair.doctor import render, run

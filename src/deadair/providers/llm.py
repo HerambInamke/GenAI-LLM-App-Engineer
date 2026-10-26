@@ -26,6 +26,9 @@ class CostMeter:
         pin, pout = PRICES.get(model, (4.0, 20.0))
         self.usd += (input_tokens * pin + output_tokens * pout) / 1_000_000
 
+    def add_usd(self, usd: float) -> None:
+        self.usd += usd
+
     def take(self) -> float:
         usd, self.usd = self.usd, 0.0
         return usd

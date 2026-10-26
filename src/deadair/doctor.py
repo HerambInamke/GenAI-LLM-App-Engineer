@@ -6,9 +6,11 @@ Only free, read-only calls: Claude model lookup, ElevenLabs voice lookup, Deepgr
 import asyncio
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 
+from deadair.audio.broadcast import dir_size_mb
 from deadair.config import Config, load_config
 from deadair.db import connect
 
@@ -91,6 +93,12 @@ def check_local(cfg: Config, db_path: str) -> list[Check]:
             else "ADMIN_PASSWORD unset: /admin locked",
         ),
     ]
+    size = dir_size_mb(Path("recordings"))
+    out.append(
+        Check(
+            "Recordings", "OK", f"{size:.0f} MB on disk, kept {cfg.recording_retention_days} days"
+        )
+    )
     twilio = os.environ.get("TWILIO_AUTH_TOKEN"), os.environ.get("PUBLIC_URL")
     if not any(twilio):
         out.append(Check("Twilio", "OFF", "no token: text call-in only"))

@@ -16,6 +16,8 @@ SR = 24_000
 class SynthTTS:
     """Offline stand-in: a pitched, syllable-timed babble, distinct per voice id."""
 
+    billable = False
+
     def _f0(self, voice_id: str) -> float:
         return 95 + int(hashlib.md5(voice_id.encode()).hexdigest(), 16) % 130
 
@@ -41,6 +43,7 @@ class ElevenLabsTTS:
     """Streams 24 kHz 16-bit PCM from ElevenLabs."""
 
     URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice}/stream?output_format=pcm_24000"
+    billable = True
 
     def __init__(self, api_key: str, model: str = "eleven_flash_v2_5"):
         self.key, self.model = api_key, model

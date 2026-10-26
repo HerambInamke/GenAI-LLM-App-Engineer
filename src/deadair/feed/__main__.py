@@ -8,6 +8,7 @@ import os
 from deadair.config import load_config
 from deadair.feed.pollers import poll_all
 from deadair.feed.store import FeedStore
+from deadair.logs import setup_logging
 from deadair.providers.llm import get_llm
 
 log = logging.getLogger("deadair.feed")
@@ -29,5 +30,5 @@ async def main(once: bool) -> None:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true", help="poll once and exit")
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    setup_logging(logging.INFO)
     asyncio.run(main(ap.parse_args().once))

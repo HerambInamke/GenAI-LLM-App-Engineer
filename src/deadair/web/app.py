@@ -17,7 +17,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 from starlette.websockets import WebSocketDisconnect
 
-from deadair.audio.broadcast import Broadcaster
+from deadair.audio.broadcast import Broadcaster, prune_recordings
 from deadair.audio.tts import get_tts
 from deadair.calls.manager import CallManager
 from deadair.calls.twilio import call_router
@@ -27,6 +27,7 @@ from deadair.feed.pollers import poll_all
 from deadair.feed.store import FeedStore
 from deadair.providers.llm import get_llm
 from deadair.station import Station
+from deadair.web.ratelimit import RateLimit
 
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
@@ -57,6 +58,8 @@ class Runtime:
         self.calls = {sid: CallManager(self.db, sid, recordings) for sid in self.stations}
         for sid, st in self.stations.items():
             st.calls, st.caster = self.calls[sid], self.casters[sid]
+            self.casters[sid].meter = st.meter
+            self.casters[sid].tts_usd_per_1k_chars = self.cfg.pricing.tts_usd_per_1k_chars
         self.tasks: list[asyncio.Task] = []
 
     def spawn(self, coro) -> asyncio.Task:
@@ -98,8 +101,15 @@ class Runtime:
                 await caster.fallback()
                 await asyncio.sleep(1)
 
+    async def prune_loop(self) -> None:
+        while True:
+            removed = prune_recordings(self.recordings, self.cfg.recording_retention_days)
+            if removed:
+                log.info("retention: removed %d old recordings", removed)
+            await asyncio.sleep(3600)
+
     def start(self) -> None:
-        self.tasks = [asyncio.create_task(self.poll_feed())]
+        self.tasks = [asyncio.create_task(self.poll_feed()), asyncio.create_task(self.prune_loop())]
         for sid in self.stations:
             self.tasks += [
                 asyncio.create_task(self.casters[sid].run()),
@@ -210,7 +220,7 @@ def create_app(
         except (WebSocketDisconnect, HTTPException):
             pass
 
-    @app.post("/api/vote/{sid}")
+    @app.post("/api/vote/{sid}", dependencies=[Depends(RateLimit(10, 60))])
     def vote(sid: str, body: VoteIn, request: Request, response: Response) -> dict:
         st = station(sid)
         v = st.votes.active(sid)
@@ -223,7 +233,7 @@ def create_app(
             raise HTTPException(409, "already voted or invalid option")
         return {"ok": True, "tally": st.votes.tally(v.id)}
 
-    @app.post("/api/rating")
+    @app.post("/api/rating", dependencies=[Depends(RateLimit(5, 60))])
     def rate(body: RatingIn, request: Request, response: Response) -> dict:
         """Listener rating form (Step 10). One rating per browser; a new one replaces it."""
         rater = request.cookies.get("voter") or uuid.uuid4().hex
