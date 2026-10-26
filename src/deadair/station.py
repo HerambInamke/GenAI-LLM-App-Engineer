@@ -89,6 +89,7 @@ class Station:
         )
         self.block_no = 0
         self.vote_opened_block = 0
+        self.unapplied: list[str] = []  # closed vote ids waiting for the next block boundary
         self.recent: deque[str] = deque(maxlen=6)
         self.now: dict = {"station": station_id, "name": self.name, "segment": "", "hosts": []}
         self.skip = asyncio.Event()  # admin "skip segment" (FR-9.3)
@@ -96,36 +97,42 @@ class Station:
         self.current_plan: BlockPlan | None = None
 
     # ---------- votes at block boundaries (FR-2.4, FR-7.3) ----------
+    def force_close_vote(self) -> str | None:
+        """Admin force-close: counting stops now, the result applies at the next boundary."""
+        active = self.votes.active(self.id)
+        if not active:
+            return None
+        self.unapplied.append(active.id)
+        return self.votes.close(active.id)
+
     def _boundary_votes(self) -> list[Segment]:
         """Close a due vote, apply it to its storyline, announce it, and open the next one."""
         active = self.votes.active(self.id)
-        if active and self.block_no - self.vote_opened_block < VOTE_BLOCKS:
-            return []
-        out = []
-        if active:
-            winner = self.votes.close(active.id)
-            story = next(
-                (
-                    s
-                    for s in self.storylines.list(self.id)
-                    if (self.vote_specs.get(s.id) or {}).get("question") == active.question
-                ),
-                None,
-            )
-            cite = ""
-            if story and self.storylines.advance(
-                story.id, f"Listeners voted: {winner}", self.block_no
-            ):
-                cite = f" [s:{story.id}]"
-            out.append(
-                Segment(
-                    type="vote_announce",
-                    host=self.hosts[0],
-                    note=f"The votes are in, and you chose: {winner}{cite}.",
-                )
-            )
-        self._open_vote()
+        if active and self.block_no - self.vote_opened_block >= VOTE_BLOCKS:
+            self.force_close_vote()
+            active = None
+        out = [self._apply(self.votes.get(vid)) for vid in self.unapplied]
+        self.unapplied.clear()
+        if not active:
+            self._open_vote()
         return out
+
+    def _apply(self, vote) -> Segment:
+        """Apply a closed vote to its storyline and build the on-air announcement (FR-7.3)."""
+        spec_q = {sid: (spec or {}).get("question") for sid, spec in self.vote_specs.items()}
+        story = next(
+            (s for s in self.storylines.list(self.id) if spec_q.get(s.id) == vote.question), None
+        )
+        cite = ""
+        if story and self.storylines.advance(
+            story.id, f"Listeners voted: {vote.result}", self.block_no
+        ):
+            cite = f" [s:{story.id}]"
+        return Segment(
+            type="vote_announce",
+            host=self.hosts[0],
+            note=f"The votes are in, and you chose: {vote.result}{cite}.",
+        )
 
     def _open_vote(self) -> None:
         candidates = [s for s in self.storylines.list(self.id) if self.vote_specs.get(s.id)]

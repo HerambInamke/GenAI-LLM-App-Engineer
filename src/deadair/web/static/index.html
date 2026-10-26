@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Dead Air</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --ink:#e8e6e1; --muted:#9a9890; --accent:#ff6b3d; --line:#2a2e38; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:2rem; margin:0; letter-spacing:-.02em; }
+  .tag { color:var(--muted); margin:4px 0 20px; }
+  .dial { display:flex; gap:8px; margin-bottom:16px; }
+  .dial button { flex:1; padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); font:inherit; cursor:pointer; }
+  .dial button[aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .label { font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  .seg { font-size:1.4rem; font-weight:600; text-transform:capitalize; }
+  audio { width:100%; margin-top:12px; }
+  .live { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-right:6px; animation:p 1.4s infinite; }
+  @keyframes p { 50% { opacity:.3 } }
+  .opts { display:grid; gap:8px; margin-top:12px; }
+  .opts button { display:flex; justify-content:space-between; padding:12px; border-radius:10px; border:1px solid var(--line); background:#20242d; color:var(--ink); font:inherit; cursor:pointer; }
+  .opts button:disabled { opacity:.6; cursor:default; }
+  .msg { color:var(--muted); font-size:.9rem; min-height:1.4em; margin-top:8px; }
+  a { color:var(--accent); }
+  @media (prefers-reduced-motion: reduce) { .live { animation:none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Dead Air</h1>
+  <p class="tag">24/7 radio run entirely by AI. Every fact on air cites a real headline.</p>
+
+  <div class="dial" role="group" aria-label="Choose station">
+    <button id="st-deadair" aria-pressed="true" onclick="tune('deadair')">Dead Air 88.1</button>
+    <button id="st-rival" aria-pressed="false" onclick="tune('rival')">KRVL 88.3</button>
+  </div>
+
+  <section class="card" aria-live="polite">
+    <div class="label"><span class="live" aria-hidden="true"></span>On air</div>
+    <div class="seg" id="segment">Tuning in…</div>
+    <div id="hosts" class="tag" style="margin:0"></div>
+    <audio id="audio" controls preload="none" src="/stream/deadair.mp3"></audio>
+  </section>
+
+  <section class="card" id="vote-card" hidden>
+    <div class="label">Listener vote</div>
+    <div id="question" style="font-weight:600"></div>
+    <div class="opts" id="options"></div>
+    <div class="msg" id="vote-msg" role="status"></div>
+  </section>
+
+  <p><a href="/archive">Episode archive</a></p>
+</main>
+<script>
+let station = "deadair", ws = null, voted = {};
+const $ = (id) => document.getElementById(id);
+
+function tune(sid) {
+  station = sid;
+  for (const s of ["deadair", "rival"]) $("st-" + s).setAttribute("aria-pressed", s === sid);
+  const audio = $("audio"), playing = !audio.paused;
+  audio.src = "/stream/" + sid + ".mp3?t=" + Date.now();
+  if (playing) audio.play();
+  connect();
+}
+
+function render(now) {
+  $("segment").textContent = (now.segment || "music").replace("_", " ");
+  $("hosts").textContent = now.hosts.length ? "with " + now.hosts.join(" & ") : now.name;
+  const v = now.vote;
+  $("vote-card").hidden = !v;
+  if (!v) return;
+  $("question").textContent = v.question;
+  const box = $("options");
+  box.replaceChildren(...v.options.map((o, i) => {
+    const b = document.createElement("button");
+    b.innerHTML = `<span></span><span></span>`;
+    b.children[0].textContent = (i + 1) + ". " + o;
+    b.children[1].textContent = v.tally[o] ?? 0;
+    b.disabled = voted[v.id];
+    b.onclick = () => castVote(v.id, o);
+    return b;
+  }));
+}
+
+async function castVote(id, option) {
+  const r = await fetch("/api/vote/" + station, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({option}),
+  });
+  voted[id] = true;
+  $("vote-msg").textContent = r.ok ? "Vote counted. The result is applied at the next block." : "You already voted on this one.";
+  fetch("/api/now/" + station).then(r => r.json()).then(render);
+}
+
+function connect() {
+  if (ws) ws.close();
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws/now/${station}`);
+  ws.onmessage = (e) => render(JSON.parse(e.data));
+  ws.onclose = () => setTimeout(() => { if (ws && ws.readyState === 3) connect(); }, 3000);
+}
+connect();
+</script>
+</body>
+</html>

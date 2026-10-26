@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Dead Air Archive</title>
+<style>
+  body { margin:0; background:#0f1115; color:#e8e6e1; font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:24px 16px; }
+  li { padding:10px 0; border-bottom:1px solid #2a2e38; list-style:none; }
+  ul { padding:0; }
+  a { color:#ff6b3d; }
+  small { color:#9a9890; }
+  audio { width:100%; margin-top:6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Archive</h1>
+  <p><a href="/">Back to the live stream</a></p>
+  <ul id="list"><li>Loading…</li></ul>
+</main>
+<script>
+fetch("/api/archive").then(r => r.json()).then(rows => {
+  const list = document.getElementById("list");
+  if (!rows.length) { list.innerHTML = "<li>No recordings yet.</li>"; return; }
+  list.replaceChildren(...rows.map(r => {
+    const li = document.createElement("li");
+    const base = `/archive/${r.station}/`;
+    li.innerHTML = `<strong></strong> <small></small><br>
+      <a download>Download MP3</a> · <a target="_blank">Transcript</a>
+      <audio controls preload="none"></audio>`;
+    li.querySelector("strong").textContent = r.station + " · " + r.file.replace(".mp3", "");
+    li.querySelector("small").textContent = Math.round(r.bytes / 1024) + " KB";
+    const [mp3, txt] = li.querySelectorAll("a");
+    mp3.href = base + r.file; txt.href = base + r.transcript;
+    li.querySelector("audio").src = base + r.file;
+    return li;
+  }));
+});
+</script>
+</body>
+</html>

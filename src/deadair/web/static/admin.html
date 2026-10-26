@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Dead Air Admin</title>
+<style>
+  body { margin:0; background:#0f1115; color:#e8e6e1; font:14px/1.5 system-ui, sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:20px 16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; }
+  section { background:#181b22; border:1px solid #2a2e38; border-radius:12px; padding:14px; overflow:auto; max-height:460px; }
+  h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:#9a9890; margin:0 0 8px; }
+  button, select { padding:8px 12px; border-radius:8px; border:1px solid #2a2e38; background:#20242d; color:#e8e6e1; font:inherit; cursor:pointer; }
+  .pass { color:#7bd88f } .stripped, .regen_pass { color:#f4c95d } .fallback { color:#ff6b6b }
+  li { margin-bottom:6px; } ol, ul { padding-left:20px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Admin</h1>
+  <div class="bar">
+    <label>Station <select id="sid" onchange="load()"><option>deadair</option><option>rival</option></select></label>
+    <button onclick="act('skip')">Skip segment</button>
+    <button onclick="act('vote/close')">Force-close vote</button>
+    <span id="status" role="status"></span>
+  </div>
+  <div class="grid">
+    <section><h2>Block plan</h2><ol id="plan"></ol></section>
+    <section><h2>Storylines</h2><ul id="stories"></ul></section>
+    <section><h2>Fact gate log</h2><ul id="gate"></ul></section>
+    <section><h2>Call queue &amp; vote</h2><div id="calls"></div><div id="vote"></div><div id="cost"></div></section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const sid = () => $("sid").value;
+function li(text, cls) { const e = document.createElement("li"); e.textContent = text; if (cls) e.className = cls; return e; }
+
+async function load() {
+  const r = await fetch("/api/admin/" + sid());
+  if (!r.ok) { $("status").textContent = "Not authorised"; return; }
+  const d = await r.json();
+  $("plan").replaceChildren(...(d.plan?.segments || []).map(s =>
+    li(`${s.type}${s.host ? " · " + s.host : ""}${s.item_ids.length ? " · " + s.item_ids.length + " items" : ""}${s.note ? " — " + s.note : ""}`)));
+  $("stories").replaceChildren(...d.storylines.map(s => li(`${s.name} [${s.status}]: ${s.summary}`)));
+  $("gate").replaceChildren(...d.gate_log.map(g => {
+    const bad = g.claims.filter(c => !c.ok).map(c => c.reason).join("; ");
+    return li(`${g.gate_result.toUpperCase()} · ${g.host}: ${g.text}${bad ? "  ⟶ " + bad : ""}`, g.gate_result);
+  }));
+  $("calls").textContent = d.calls.length ? d.calls.map(c => `${c.id.slice(0, 8)} ${c.status}`).join(", ") : "No callers waiting.";
+  const v = d.now.vote;
+  $("vote").textContent = v ? `Vote: ${v.question} ${JSON.stringify(v.tally)}` : "No open vote.";
+  $("cost").textContent = `Spent last hour: $${d.spent_last_hour.toFixed(4)} of $${d.budget}`;
+}
+
+async function act(path) {
+  const r = await fetch(`/api/admin/${sid()}/${path}`, {method: "POST"});
+  $("status").textContent = r.ok ? "Done." : "Failed: " + (await r.json()).detail;
+  load();
+}
+load(); setInterval(load, 3000);
+</script>
+</body>
+</html>
