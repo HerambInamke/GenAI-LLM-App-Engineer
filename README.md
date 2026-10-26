@@ -64,13 +64,13 @@ From `python -m deadair.eval report` (2026-10-26, offline providers, station log
 | NFR-3 true claims blocked | 0/100 | < 10% | PASS** |
 | NFR-5 catchphrase/joke repeats in 24 h | 0 in 59 banter/feud lines | 0 | PASS |
 | Unsourced claims aired (gate log) | 0 | 0 | PASS |
-| NFR-4 soak with TTS outage | 0.5 h accelerated: 0 unhandled, 39 fallbacks | 6 h, 0 unhandled | PARTIAL*** |
+| NFR-4 soak with 15-min TTS outage | 6 h accelerated: 0 unhandled, 28 fallbacks, memory 63 → ~100 MB plateau | 6 h, 0 unhandled | PASS*** |
 | NFR-6 cost per hour | $0 (offline) | < $2 | not yet measured live |
 | Listener ratings | 0 collected | 10 raters | TODO |
 
 \* With offline providers the reply is generated and queued almost instantly; this proves the queue → on-air → reply path, not Claude/ElevenLabs speed. Run `eval report --live` with keys for the real number.
 \** The claim set is generated from fixture headlines, so it is a regression check rather than an independent benchmark.
-\*** A 6-hour accelerated soak was started but the machine ran low on memory and it was stopped; the 30-minute run passed. Re-run with `python -m deadair.eval soak --hours 6`.
+\*** Accelerated clock with offline providers (6 simulated hours in under 4 minutes). A real-time soak with live providers is still worth running before a public launch.
 <!-- results:end -->
 
 ## Configuration

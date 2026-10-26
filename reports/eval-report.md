@@ -1,6 +1,6 @@
 # Dead Air evaluation report
 
-Generated 2026-10-26 14:47 UTC · measurements: offline providers (pipeline only)
+Generated 2026-10-26 15:52 UTC · measurements: offline providers (pipeline only)
 
 | Metric | Result | Target | Status |
 |---|---|---|---|
@@ -12,7 +12,7 @@ Generated 2026-10-26 14:47 UTC · measurements: offline providers (pipeline only
 | Unsourced claims aired (gate log) | 0 | 0 | PASS |
 | NFR-6 cost per hour | $0.000 (46 blocks) | < $2.00 | PASS |
 | Listener rating | 0.00/5 from 0 raters | 10 raters | FAIL |
-| NFR-4 soak | 0.5 h (accelerated, offline providers), 0 unhandled, 39 TTS fallbacks | 0 unhandled, fallback works | PASS |
+| NFR-4 soak | 6.0 h (accelerated, offline providers), 0 unhandled, 28 TTS fallbacks | 0 unhandled, fallback works | PASS |
 
 Gate decisions in the station log: {'pass': 463}
 
