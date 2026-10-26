@@ -1,0 +1,14 @@
+# Stations, budgets and models (NFR-10). Persona ids refer to config/personas/<id>.yaml.
+budget_usd_per_hour: 2.0
+llm:
+  host_model: claude-sonnet-5-5
+  fast_model: claude-haiku-5-5
+stations:
+  - id: deadair
+    name: Dead Air 88.1
+    music_style: lo-fi synth
+    hosts: [max, juniper]
+  - id: rival
+    name: KRVL 88.3 "The Real Air"
+    music_style: brash rock
+    hosts: [dex, velma]

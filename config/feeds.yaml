@@ -1,0 +1,8 @@
+# News sources (FR-1.1). The NewsAPI source is used only when NEWSAPI_KEY is set.
+poll_minutes: 5
+max_age_hours: 48
+sources:
+  - {name: BBC News, kind: rss, url: "https://feeds.bbci.co.uk/news/rss.xml", category: world}
+  - {name: NPR, kind: rss, url: "https://feeds.npr.org/1001/rss.xml", category: us}
+  - {name: The Guardian Science, kind: rss, url: "https://www.theguardian.com/science/rss", category: science}
+  - {name: NewsAPI, kind: newsapi, url: "https://newsapi.org/v2/top-headlines?language=en", category: general}
