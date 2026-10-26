@@ -39,6 +39,16 @@ BANTER = [
     "I practise my laugh in the mirror so you get the premium version.",
     "Late night radio is just thinking out loud with better lighting.",
 ]
+CALLER_REPLIES = [
+    "That is a fair point, and I think a lot of listeners feel the same way.",
+    "Ha, I love that, you should call in more often.",
+    "Interesting take, I am going to be thinking about that all night.",
+    "You know what, I cannot argue with that.",
+    "Bold opinion, and this is exactly the place for it.",
+    "Strong words, I respect the energy.",
+    "Okay, you have convinced me, mostly.",
+    "That might be the most reasonable thing anyone has said on this show.",
+]
 SERIOUS_CLOSE = "Our thoughts are with everyone affected."
 LIGHT_QUIPS = [
     "Honestly, that is the best thing I have read all day.",
@@ -164,9 +174,9 @@ class HostWriter:
         if seg.type == "song_intro":
             return ["Here is a little something from the library, turn it up."]
         if seg.type == "caller":
-            return [f"Thanks for calling {self.station_name}, you are on the air."] + (
-                ["We hear you, and that is a fair point."] if context else []
-            )
+            if "Caller just said:" not in context:
+                return [f"You are on the air at {self.station_name}, go ahead."]
+            return self._fresh(CALLER_REPLIES, 1) or ["Fair enough, thanks for that."]
         if seg.type == "vote_announce":
             return [seg.note or "The votes are in, and you have spoken."]
         return [f"You are listening to {self.station_name}."]
