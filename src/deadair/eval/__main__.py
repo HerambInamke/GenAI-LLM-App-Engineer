@@ -21,7 +21,7 @@ from pathlib import Path
 
 from deadair.audio.broadcast import FRAME_S
 from deadair.audio.tts import SynthTTS, get_tts
-from deadair.config import load_config
+from deadair.config import load_config, load_dotenv
 from deadair.db import connect
 from deadair.eval.measure import bargein_stop, call_latency, gate_accuracy
 from deadair.eval.planted import fixture_items
@@ -269,6 +269,7 @@ async def soak(hours: float, kill_at: float, kill_for_h: float) -> dict:
 
 
 def main() -> None:
+    load_dotenv()
     ap = argparse.ArgumentParser(prog="deadair.eval")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("report")

@@ -5,7 +5,7 @@ import asyncio
 import logging
 import os
 
-from deadair.config import load_config
+from deadair.config import load_config, load_dotenv
 from deadair.feed.pollers import poll_all
 from deadair.feed.store import FeedStore
 from deadair.logs import setup_logging
@@ -28,6 +28,7 @@ async def main(once: bool) -> None:
 
 
 if __name__ == "__main__":
+    load_dotenv()
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true", help="poll once and exit")
     setup_logging(logging.INFO)

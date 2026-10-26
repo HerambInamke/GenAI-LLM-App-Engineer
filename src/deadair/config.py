@@ -86,3 +86,28 @@ def load_config(config_dir: Path = CONFIG_DIR) -> Config:
         personas=personas,
         feeds=_yaml(config_dir / "feeds.yaml"),
     )
+
+
+def load_dotenv(path: Path = Path(".env")) -> int:
+    """Read KEY=VALUE lines from .env into os.environ without overriding real env vars.
+
+    Supports `# comments`, inline ` # comments` after unquoted values, and quoted values.
+    Returns how many variables were set.
+    """
+    if not path.is_file():
+        return 0
+    n = 0
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip().removeprefix("export ").strip(), value.strip()
+        if value[:1] in {'"', "'"} and value[0] in value[1:]:
+            value = value[1 : value.index(value[0], 1)]
+        else:  # "KEY=   # note" has an empty value, not "# note"
+            value = "" if value.startswith("#") else value.split(" #", 1)[0].strip()
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+            n += 1
+    return n
