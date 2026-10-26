@@ -36,3 +36,27 @@ def test_unknown_persona_rejected(cfg_dir):
     (cfg_dir / "personas" / "juniper.yaml").unlink()
     with pytest.raises(ValidationError, match="unknown personas"):
         load_config(cfg_dir)
+
+
+def test_load_dotenv(tmp_path, monkeypatch):
+    from deadair.config import load_dotenv
+
+    env = tmp_path / ".env"
+    env.write_text(
+        "# comment\n"
+        "DA_KEY=sk-123        # inline comment\n"
+        "DA_EMPTY=            # nothing set\n"
+        'DA_QUOTED="pa ss #word"\n'
+        "export DA_EXPORTED=yes\n"
+        "DA_KEEP=from-file\n"
+    )
+    for k in ("DA_KEY", "DA_EMPTY", "DA_QUOTED", "DA_EXPORTED"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("DA_KEEP", "from-env")
+    assert load_dotenv(env) == 3
+    import os
+
+    assert os.environ["DA_KEY"] == "sk-123" and os.environ["DA_QUOTED"] == "pa ss #word"
+    assert os.environ["DA_EXPORTED"] == "yes" and "DA_EMPTY" not in os.environ
+    assert os.environ["DA_KEEP"] == "from-env"  # real env vars always win
+    assert load_dotenv(tmp_path / "missing.env") == 0

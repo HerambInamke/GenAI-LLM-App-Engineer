@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 
-from deadair.config import load_config
+from deadair.config import load_config, load_dotenv
 from deadair.db import connect
 from deadair.feed.pollers import poll_all
 from deadair.feed.store import FeedStore
@@ -60,6 +60,7 @@ async def text_show(minutes: float, db_path: str, poll: bool) -> list[str]:
 
 
 def main() -> None:
+    load_dotenv()
     ap = argparse.ArgumentParser(prog="deadair")
     sub = ap.add_subparsers(dest="cmd", required=True)
     t = sub.add_parser("text", help="print a text-only show")
