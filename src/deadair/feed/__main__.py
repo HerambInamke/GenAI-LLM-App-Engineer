@@ -8,15 +8,17 @@ import os
 from deadair.config import load_config
 from deadair.feed.pollers import poll_all
 from deadair.feed.store import FeedStore
+from deadair.providers.llm import get_llm
 
 log = logging.getLogger("deadair.feed")
 
 
 async def main(once: bool) -> None:
-    cfg = load_config().feeds
+    full = load_config()
+    cfg, llm = full.feeds, get_llm()
     store = FeedStore(os.environ.get("DEADAIR_DB", "data/deadair.db"))
     while True:
-        new = store.add(await poll_all(cfg.sources))
+        new = store.add(await poll_all(cfg.sources, llm, full.llm.fast_model))
         active = len(store.active(cfg.max_age_hours))
         log.info("poll done: %d new, %d in active pool", new, active)
         if once:

@@ -99,3 +99,16 @@ def test_unclear_tone_uses_fallback():
 def test_helpers():
     assert title_key("  Hello, World!! ") == "hello world"
     assert normalize_url("") == ""
+
+
+async def test_llm_tone_fallback_only_for_unclear(items_raw=None):
+    from conftest import FakeLLM
+
+    from deadair.feed.tone import llm_tones
+
+    base = [from_rss_entry(e, "Ex", "w") for e in sample_entries(3)]  # serious, light, neutral
+    llm = FakeLLM(parsed=[{"tones": ["serious"]}])
+    out = await llm_tones(base, llm, "m")
+    assert [i.tone for i in out] == ["serious", "light", "serious"]
+    assert "budget" in llm.prompts[0] and "earthquake" not in llm.prompts[0]
+    assert await llm_tones(base, None, "m") == base

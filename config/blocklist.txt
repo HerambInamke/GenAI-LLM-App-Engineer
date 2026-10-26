@@ -1,0 +1,7 @@
+# One term per line, case-insensitive whole-word match (NFR-7, FR-6.7).
+# This starter list is deliberately short; extend it with a maintained slur/explicit-term list.
+fuck
+shit
+cunt
+porn
+nazi
