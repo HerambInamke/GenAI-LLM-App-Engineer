@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Secrets and runtime data
+.env
+data/
+recordings/
+*.db
+*.db-wal
+*.db-shm
+
+# Local agent tooling (not part of the product)
+.agents/
+.skills/
+.claude/settings.local.json
+graphify-out/
+.graphify/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
