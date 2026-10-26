@@ -1,9 +1,20 @@
 {
-  "hours": 0.5,
+  "hours": 1.0,
   "mode": "accelerated, offline providers",
-  "wall_seconds": 38,
-  "blocks": 39,
+  "wall_seconds": 46,
+  "blocks": 83,
   "unhandled": 0,
-  "tts_fallbacks": 39,
-  "finished": "2026-10-26T14:41:45.179556+00:00"
+  "tts_fallbacks": 34,
+  "rss_mb": {
+    "start": 64,
+    "peak": 75,
+    "end": 75,
+    "samples": [
+      64,
+      73,
+      74,
+      75
+    ]
+  },
+  "finished": "2026-10-26T15:11:56.244394+00:00"
 }

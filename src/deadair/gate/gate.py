@@ -21,12 +21,15 @@ SentenceCheck = Callable[[str], str | None]  # returns a failure reason or None
 
 class FactualSentences(BaseModel):
     indexes: list[int]
+    named_people: list[int] = []
 
 
 EXTRACT_SYSTEM = (
     "You label radio-host sentences. A factual claim is any statement about a real-world event, "
     "number, a person's action, or a date. Jokes, opinions, greetings and banter are not claims. "
-    "Return the 0-based indexes of sentences that contain at least one factual claim."
+    "Return in `indexes` the 0-based indexes of sentences that contain at least one factual claim, "
+    "and in `named_people` the indexes of sentences that name or clearly identify a real person. "
+    "The radio hosts and the fictional stations are not real people."
 )
 
 
@@ -77,20 +80,23 @@ class FactGate:
             return strip_citations(r["text"]) if r else None
         return None
 
-    async def _llm_factual(self, sentences: list[str]) -> set[int]:
+    async def _llm_labels(self, sentences: list[str]) -> FactualSentences:
+        empty = FactualSentences(indexes=[])
         if not self.llm:
-            return set()
+            return empty
         prompt = "\n".join(f"{i}: {strip_citations(s)}" for i, s in enumerate(sentences))
         try:
-            out = await self.llm.parse(self.model, EXTRACT_SYSTEM, prompt, FactualSentences)
-            return set(out.indexes)
+            return await self.llm.parse(self.model, EXTRACT_SYSTEM, prompt, FactualSentences)
         except Exception as e:  # noqa: BLE001 - the rule pass still runs
             log.warning("LLM claim extraction failed: %s", e)
-            return set()
+            return empty
 
-    async def review(self, text: str, extra: SentenceCheck | None = None) -> list[Review]:
+    async def review(
+        self, text: str, extra: SentenceCheck | None = None, people_ok: bool = True
+    ) -> list[Review]:
         sentences = split_sentences(text)
-        flagged = await self._llm_factual(sentences)
+        labels = await self._llm_labels(sentences)
+        flagged, people = set(labels.indexes), set(labels.named_people)
         out = []
         for i, s in enumerate(sentences):
             probe = s
@@ -102,6 +108,8 @@ class FactGate:
             reason = None
             if not is_clean(s):
                 reason = "moderation"
+            elif not people_ok and i in people:
+                reason = "real person outside a news segment (NFR-7)"
             elif claim:
                 reason = verify(claim, self.lookup)
             if reason is None and extra:
@@ -117,13 +125,14 @@ class FactGate:
         host: str,
         regen: Regen | None = None,
         extra: SentenceCheck | None = None,
+        people_ok: bool = True,
     ) -> GateDecision:
-        reviews = await self.review(text, extra)
+        reviews = await self.review(text, extra, people_ok)
         result = "pass"
         if any(r.reason for r in reviews) and regen:
             try:
                 retry = await self.review(
-                    await regen(text, [r.reason for r in reviews if r.reason]), extra
+                    await regen(text, [r.reason for r in reviews if r.reason]), extra, people_ok
                 )
                 reviews, result = retry, "regen_pass"
             except Exception as e:  # noqa: BLE001 - fall through to stripping

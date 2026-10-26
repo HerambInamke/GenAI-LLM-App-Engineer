@@ -17,11 +17,12 @@ Open <http://localhost:8000>: press play, switch to the rival, vote, or call in 
 | Command | What it does |
 |---|---|
 | `python -m deadair serve` | Both stations, live MP3 streams, web player, admin, archive |
+| `python -m deadair doctor` | Which providers are live, and whether each key and persona voice id works |
 | `python -m deadair text --minutes 20` | Text-only show in the console (fast way to see the writing) |
 | `python -m deadair.feed --once` | Poll the news sources into SQLite |
 | `python -m deadair.eval report [--live]` | One Markdown report with every NFR number (`reports/eval-report.md`) |
 | `python -m deadair.eval soak --hours 6` | Accelerated soak with a TTS outage in the middle |
-| `pytest -q` | 58 tests, all offline |
+| `pytest -q` | 66 tests, all offline (also run by GitHub Actions on every PR) |
 
 Docker: `docker build -t deadair . && docker run -p 8000:8000 --env-file .env -v ./data:/app/data -v ./recordings:/app/recordings deadair`
 
@@ -81,6 +82,8 @@ Everything tunable is YAML in `config/` (NFR-10): `stations.yaml` (stations, mod
 | ElevenLabs streaming TTS | `ELEVENLABS_API_KEY` | Synthetic per-host babble voice |
 | Deepgram streaming STT | `DEEPGRAM_API_KEY` | Phone line answers "closed"; text call-in still works |
 | Twilio Voice + Media Streams | `TWILIO_AUTH_TOKEN`, `PUBLIC_URL` | Text call-in only |
+
+After adding keys, run `python -m deadair doctor`: it makes only free, read-only calls and flags anything wrong, including the placeholder `TBD-…` voice ids that must be replaced with real ElevenLabs ids.
 
 Twilio: point the number's voice webhook at `POST {PUBLIC_URL}/twilio/voice/deadair`. Set real ElevenLabs voice ids in the persona files.
 

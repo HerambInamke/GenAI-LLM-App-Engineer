@@ -77,3 +77,60 @@ async def test_llm_writer_prompt_has_items_and_rules(db, items):
     assert out[0] == "Wow." and items[0].id in out[1]
     assert f"[f:{items[0].id}]" in llm.prompts[0]
     assert "citation" in w.system()
+
+
+def test_repeat_check_scales_and_expires(db):
+    import time
+    from datetime import UTC, datetime, timedelta
+
+    mem = EpisodeMemory(db)
+    rows = [
+        (
+            f"id{i}",
+            "deadair",
+            "max",
+            f"line number {i} about topic {i * 7} today",
+            datetime.now(UTC).isoformat(),
+            "line",
+        )
+        for i in range(10_000)
+    ]
+    db.executemany("INSERT INTO memory_items VALUES (?, ?, ?, ?, ?, ?)", rows)
+    old = (datetime.now(UTC) - timedelta(hours=30)).isoformat()
+    db.execute(
+        "INSERT INTO memory_items VALUES ('old','deadair','max',"
+        "'an ancient joke nobody remembers anymore',?,'line')",
+        (old,),
+    )
+    start = time.perf_counter()
+    for i in range(200):
+        assert mem.repeat_reason("max", f"line number {i} about topic {i * 7} today", [])
+        assert mem.repeat_reason("max", f"a brand new sentence {i} for the show", []) is None
+    assert time.perf_counter() - start < 2.0  # one-time load, then set lookups
+    assert mem.repeat_reason("max", "an ancient joke nobody remembers anymore", []) is None
+    mem.remember("deadair", "max", "a fresh joke about the studio fridge tonight", [])
+    assert mem.repeat_reason("max", "a fresh joke about the studio fridge tonight", [])
+
+
+def test_prune_keeps_seven_days(db):
+    from datetime import UTC, datetime, timedelta
+
+    mem = EpisodeMemory(db)
+    old = (datetime.now(UTC) - timedelta(days=8)).isoformat()
+    db.execute("INSERT INTO memory_items VALUES ('x','deadair','max','old line',?,'line')", (old,))
+    mem.add("deadair", "max", "new line")
+    mem.prune()
+    assert [r[0] for r in db.execute("SELECT text FROM memory_items")] == ["new line"]
+
+
+def test_expired_grams_leave_the_index(db):
+    from datetime import timedelta
+
+    mem = EpisodeMemory(db)
+    mem.remember("deadair", "max", "a joke that will age out of the window", [])
+    index = mem._index("max")
+    lines = mem._lines["max"]
+    at, g = lines[0]
+    lines[0] = (at - timedelta(hours=25), g)  # pretend it aired yesterday
+    assert len(mem._index("max")) == 0 and not index
+    assert mem.repeat_reason("max", "a joke that will age out of the window", []) is None

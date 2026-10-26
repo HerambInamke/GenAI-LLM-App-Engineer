@@ -2,6 +2,7 @@
 
 python -m deadair text --minutes 20     text-only show printed to the console (Steps 2-4)
 python -m deadair serve                 full station: feed, both stations, audio, web (Step 5+)
+python -m deadair doctor                which providers are live and whether each key works
 """
 
 import argparse
@@ -62,6 +63,7 @@ def main() -> None:
     t.add_argument("--minutes", type=float, default=20)
     t.add_argument("--no-poll", action="store_true", help="use what is already in the DB")
     t.add_argument("-v", "--verbose", action="store_true", help="log plans and gate decisions")
+    sub.add_parser("doctor", help="check config, feed and every provider key")
     s = sub.add_parser("serve", help="run the full station and web app")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
@@ -71,6 +73,12 @@ def main() -> None:
         level=logging.WARNING if quiet else logging.INFO, format="%(asctime)s %(name)s %(message)s"
     )
     db_path = os.environ.get("DEADAIR_DB", "data/deadair.db")
+    if args.cmd == "doctor":
+        from deadair.doctor import render, run
+
+        checks = asyncio.run(run(db_path))
+        print(render(checks))
+        sys.exit(1 if any(c.status == "FAIL" for c in checks) else 0)
     if args.cmd == "text":
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         asyncio.run(text_show(args.minutes, db_path, not args.no_poll))

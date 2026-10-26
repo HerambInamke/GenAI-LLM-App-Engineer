@@ -129,3 +129,26 @@ async def test_log_stores_aired_text_after_regen(gate, db, items):
     await gate.check("Kenya plants 41 million trees.", segment_id="seg-r", host="max", regen=regen)
     row = db.execute("SELECT text FROM chunks WHERE segment_id = 'seg-r'").fetchone()
     assert row["text"] == f"{it.title} [f:{it.id}]."
+
+
+async def test_real_people_only_in_news(db):
+    """NFR-7: the same sentence naming a public figure passes in news, is stripped elsewhere."""
+    from conftest import FakeLLM
+
+    labels = {"indexes": [], "named_people": [0]}
+    llm = FakeLLM(parsed=[labels, labels])
+    gate = FactGate(db, ALLOW, llm)
+    text = "Honestly the prime minister looked tired."
+    assert (await gate.check(text, segment_id="s", host="max")).result == "pass"
+    d = await gate.check(text, segment_id="s", host="max", people_ok=False)
+    assert d.result == "fallback" and "NFR-7" in d.reasons[0]
+
+
+def test_offline_lines_never_name_people():
+    """Offline template lines outside news contain no names, so NFR-7 holds without Claude."""
+    from deadair.hosts.writer import BANTER, CALLER_REPLIES, FEUD, LIGHT_QUIPS, SERIOUS_CLOSE
+
+    allow = ALLOW | {"krvl", "dead", "air"}
+    for line in BANTER + FEUD + CALLER_REPLIES + LIGHT_QUIPS + [SERIOUS_CLOSE]:
+        claim = rule_claim(line, allow)
+        assert claim is None or not claim.entities, line

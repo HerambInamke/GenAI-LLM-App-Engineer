@@ -7,6 +7,7 @@ embedding provider is chosen.
 import re
 import sqlite3
 import uuid
+from collections import Counter, deque
 from datetime import UTC, datetime, timedelta
 
 _W = re.compile(r"[a-z0-9']+")
@@ -30,26 +31,57 @@ class EpisodeMemory:
 
     def __init__(self, db: sqlite3.Connection, retention_days: int = 7):
         self.db, self.retention_days = db, retention_days
+        # Per-host index of 5-grams aired in the last 24 h, so a repeat check is a set lookup
+        # instead of re-reading and re-tokenising a whole day of lines (24/7 operation).
+        self._lines: dict[str, deque[tuple[datetime, set]]] = {}
+        self._grams: dict[str, Counter] = {}
+
+    def _index(self, host: str) -> Counter:
+        if host not in self._grams:
+            self._lines[host], self._grams[host] = deque(), Counter()
+            rows = self.db.execute(
+                "SELECT text, created_at FROM memory_items WHERE host = ? AND tags = 'line' "
+                "AND created_at >= ? ORDER BY created_at",
+                (host, _ago(24)),
+            )
+            for text, created in rows:
+                self._push(host, datetime.fromisoformat(created), text)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
+        lines, grams = self._lines[host], self._grams[host]
+        while lines and lines[0][0] < cutoff:
+            for g in lines.popleft()[1]:
+                grams[g] -= 1
+                if grams[g] <= 0:
+                    del grams[g]  # Counter.subtract would keep zero keys and grow forever
+        return grams
+
+    def _push(self, host: str, at: datetime, text: str) -> None:
+        g = ngrams(text, self.REPEAT_N)
+        self._lines[host].append((at, g))
+        self._grams[host].update(g)
 
     def add(self, station: str, host: str, text: str, tags: str = "line") -> None:
+        now = datetime.now(UTC)
         self.db.execute(
             "INSERT INTO memory_items VALUES (?, ?, ?, ?, ?, ?)",
-            (uuid.uuid4().hex, station, host, text, datetime.now(UTC).isoformat(), tags),
+            (uuid.uuid4().hex, station, host, text, now.isoformat(), tags),
         )
         self.db.commit()
+        if tags == "line" and host in self._grams:
+            self._push(host, now, text)
 
-    def recent(self, host: str, hours: float, tags: str = "line") -> list[str]:
+    def recent(self, host: str, hours: float, tags: str = "line", limit: int = 10_000) -> list[str]:
         rows = self.db.execute(
             "SELECT text FROM memory_items WHERE host = ? AND tags = ? AND created_at >= ? "
-            "ORDER BY created_at DESC",
-            (host, tags, _ago(hours)),
+            "ORDER BY created_at DESC LIMIT ?",
+            (host, tags, _ago(hours), limit),
         )
         return [r[0] for r in rows]
 
     def similar(self, host: str, text: str, k: int = 5) -> list[str]:
         q = ngrams(text, 1)
         scored = []
-        for t in self.recent(host, self.retention_days * 24):
+        for t in self.recent(host, self.retention_days * 24, limit=500):
             g = ngrams(t, 1)
             if q and g:
                 scored.append((len(q & g) / len(q | g), t))
@@ -68,8 +100,8 @@ class EpisodeMemory:
         for c in self.used_catchphrases(host) & set(catchphrases):
             if " ".join(words(c)) in low:
                 return f"catchphrase reused within 24h: {c}"
-        grams = ngrams(sentence, self.REPEAT_N)
-        if grams and any(grams & ngrams(t, self.REPEAT_N) for t in self.recent(host, 24)):
+        index = self._index(host)
+        if any(index[g] > 0 for g in ngrams(sentence, self.REPEAT_N)):
             return "line repeated within 24h"
         return None
 

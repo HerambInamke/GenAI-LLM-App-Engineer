@@ -71,3 +71,25 @@ Everything runs offline (template hosts, rule-based gate, synthetic voice). Real
 ## Task 13: Demo assets — partly DONE (PR #5)
 - [x] README with architecture diagram, results table, demo script
 - [ ] Record a 15-minute episode with real voices, a live feud and a phone caller (needs keys)
+
+## Phase 6: v1 hardening (no keys needed)
+
+### Task 14: CI — DONE
+- [x] GitHub Actions: ruff check, ruff format --check, pytest on every push and PR
+**Verify:** workflow green on the PR
+
+### Task 15: 24/7 scalability of the repetition guard — DONE
+- [x] Episode memory is now pruned to 7 days at every block boundary (it was never pruned)
+- [x] 1 h accelerated soak: RSS 64 → 75 MB, flattening (73, 74, 75)
+- [x] Repeat checks use an in-memory 24 h n-gram index per host instead of re-reading every line from SQLite
+- [x] Soak report records process memory at start, peak and end
+**Verify:** repeat check stays fast with 10,000 stored lines (test); 1 h accelerated soak shows flat memory
+
+### Task 16: NFR-7 public figures only in news — DONE
+- [x] With Claude: the gate also flags sentences naming real people; in non-news segments they are stripped
+- [x] Offline: template lines never name people (already true), covered by a test
+**Verify:** `pytest tests/test_gate.py`
+
+### Task 17: `python -m deadair doctor` — DONE
+- [x] Reports config, DB, and each provider: key present, key works, persona voice ids exist
+**Verify:** offline run prints a clear table; provider checks tested with mocked HTTP

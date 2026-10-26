@@ -150,6 +150,7 @@ class Station:
     # ---------- planning ----------
     async def plan_block(self) -> tuple[str, BlockPlan]:
         self.block_no += 1
+        self.memory.prune()  # keep 7 days of episode memory (FR-3.4)
         pre = self._boundary_votes()
         items = self.feed.active(self.cfg.feeds.max_age_hours)
         plan, fixes = await self.planner.plan(items, self.storylines.list(self.id))
@@ -227,6 +228,7 @@ class Station:
                 host=seg.host,
                 regen=writer.regen,
                 extra=repeat if seg.type in JOKEY else None,
+                people_ok=seg.type == "news",  # NFR-7: real people only in news reads
             )
             if d.result != "pass":
                 log.info("[%s] gate %s on %r: %s", self.id, d.result, raw[:80], d.reasons)
