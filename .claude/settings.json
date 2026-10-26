@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python -m pytest:*)",
+      "Bash(.venv/Scripts/ruff:*)",
+      "Bash(.venv/Scripts/python -m deadair.feed:*)",
+      "Bash(uv pip install:*)",
+      "Bash(graphify:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./data/**)"
+    ]
+  }
+}
