@@ -88,3 +88,51 @@ async def test_thirty_minute_stream_has_no_dropouts(db, tmp_path):
     assert silent == 0  # the bed always plays, so there is never dead air
     assert total > 30 * 60 * 64_000 / 8 * 0.9  # ~64 kbps for the whole half hour
     assert db.execute("SELECT COUNT(*) FROM blocks").fetchone()[0] >= 2
+
+
+async def test_billable_tts_cost_lands_in_block_meter(tmp_path):
+    from deadair.providers.llm import CostMeter
+
+    class PaidTTS(SynthTTS):
+        billable = True
+
+    b = Broadcaster("deadair", "lo-fi synth", tmp_path, PaidTTS(), realtime=False)
+    b.meter, b.tts_usd_per_1k_chars = CostMeter(), 0.20
+    b.enqueue = lambda pcm, ducked: None  # nothing drains the queue in this test
+    await b.emit(Event("line", "deadair", "max", "x" * 500, "v1"))
+    assert abs(b.meter.take() - 0.10) < 1e-9
+
+    free = Broadcaster("deadair", "lo-fi synth", tmp_path, SynthTTS(), realtime=False)
+    free.meter, free.tts_usd_per_1k_chars = CostMeter(), 0.20
+    free.enqueue = lambda pcm, ducked: None
+    await free.emit(Event("line", "deadair", "max", "x" * 500, "v1"))
+    assert free.meter.take() == 0
+
+
+def test_runtime_wires_meters(tmp_path, monkeypatch):
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    from deadair.web.app import Runtime
+
+    rt = Runtime(str(tmp_path / "r.db"), tmp_path / "rec", realtime=False)
+    for sid, st in rt.stations.items():
+        assert rt.casters[sid].meter is st.meter
+        assert rt.casters[sid].tts_usd_per_1k_chars == rt.cfg.pricing.tts_usd_per_1k_chars
+
+
+def test_prune_recordings_by_age(tmp_path):
+    import os
+    import time
+
+    from deadair.audio.broadcast import prune_recordings
+
+    (tmp_path / "deadair").mkdir()
+    (tmp_path / "calls").mkdir()
+    old, new = tmp_path / "deadair" / "old.mp3", tmp_path / "deadair" / "new.mp3"
+    call = tmp_path / "calls" / "abc.txt"
+    for p in (old, new, call):
+        p.write_bytes(b"x")
+    month_ago = time.time() - 30 * 86400
+    os.utime(old, (month_ago, month_ago))
+    os.utime(call, (month_ago, month_ago))
+    assert prune_recordings(tmp_path, 14) == 2
+    assert new.exists() and not old.exists() and not call.exists()

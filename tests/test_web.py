@@ -76,3 +76,18 @@ def test_rating_one_per_browser(client):
     assert client.post("/api/rating", json={"score": 5}).status_code == 200
     rows = client.app.state.rt.db.execute("SELECT score FROM ratings").fetchall()
     assert [r[0] for r in rows] == [5]
+
+
+def test_call_in_limits(client):
+    too_long = client.post("/api/call/deadair", json={"lines": ["x" * 301]})
+    assert too_long.status_code == 422  # invalid requests still count toward the limit
+    codes = [client.post("/api/call/deadair", json={"lines": ["hi"]}).status_code for _ in range(3)]
+    assert codes == [200, 200, 429]  # 3 requests per minute per client
+
+
+def test_vote_rate_limited(client):
+    client.app.state.rt.stations["deadair"]._open_vote()
+    codes = [
+        client.post("/api/vote/deadair", json={"option": "nope"}).status_code for _ in range(11)
+    ]
+    assert codes[-1] == 429 and 429 not in codes[:10]

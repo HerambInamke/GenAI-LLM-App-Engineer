@@ -28,6 +28,7 @@ from deadair.eval.planted import fixture_items
 from deadair.feed.store import FeedStore
 from deadair.gate.claims import strip_citations
 from deadair.hosts.memory import repetition_violations
+from deadair.logs import setup_logging
 from deadair.providers.llm import get_llm
 
 REPORTS = Path("reports")
@@ -280,7 +281,7 @@ def main() -> None:
     s.add_argument("--kill-for", type=float, default=0.25, help="simulated hours TTS stays down")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(name)s %(message)s")
+    setup_logging(logging.WARNING)
     if args.cmd == "report":
         print(asyncio.run(report(args.db, args.live, args.out)))
     else:

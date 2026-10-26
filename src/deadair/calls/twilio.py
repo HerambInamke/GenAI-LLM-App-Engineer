@@ -13,14 +13,16 @@ import logging
 import os
 import time
 from html import escape
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, Response, WebSocket
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, WebSocket
+from pydantic import BaseModel, Field, StringConstraints
 from starlette.websockets import WebSocketDisconnect
 
 from deadair.calls.audio import down_to_phone, mulaw_decode, mulaw_encode
 from deadair.calls.bargein import BargeIn
 from deadair.calls.stt import DeepgramSTT, stt_available
+from deadair.web.ratelimit import RateLimit
 
 log = logging.getLogger(__name__)
 PACKET = 160  # 20 ms of 8 kHz mu-law
@@ -40,7 +42,9 @@ def twiml(body: str) -> Response:
 
 
 class TextCall(BaseModel):
-    lines: list[str] = Field(min_length=1, max_length=4)
+    lines: list[Annotated[str, StringConstraints(min_length=1, max_length=300)]] = Field(
+        min_length=1, max_length=4
+    )
 
 
 def call_router(rt) -> APIRouter:
@@ -98,11 +102,12 @@ def call_router(rt) -> APIRouter:
                         )
                     )
 
+        stt = DeepgramSTT(
+            os.environ["DEEPGRAM_API_KEY"],
+            lambda text, t: caller and cm.hear(caller.id, text, t),
+        )
         try:
-            async with DeepgramSTT(
-                os.environ["DEEPGRAM_API_KEY"],
-                lambda text, t: caller and cm.hear(caller.id, text, t),
-            ) as stt:
+            async with stt:
                 while True:
                     msg = json.loads(await ws.receive_text())
                     event = msg.get("event")
@@ -125,6 +130,7 @@ def call_router(rt) -> APIRouter:
         except WebSocketDisconnect:
             pass
         finally:
+            station.meter.add_usd(stt.minutes * rt.cfg.pricing.stt_usd_per_minute)  # NFR-6
             caster.phone_taps.discard(tap)
             if sender:
                 sender.cancel()
@@ -132,7 +138,7 @@ def call_router(rt) -> APIRouter:
                 cm.hang_up(caller.id)
 
     # ---------- text call-in (works with no telephony keys) ----------
-    @router.post("/api/call/{sid}")
+    @router.post("/api/call/{sid}", dependencies=[Depends(RateLimit(3, 60))])
     async def text_call(sid: str, body: TextCall) -> dict:
         cm = calls_for(sid)
         caller, decision = cm.new_call()
