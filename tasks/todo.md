@@ -114,3 +114,17 @@ Everything runs offline (template hosts, rule-based gate, synthetic voice). Real
 ### Task 21: Structured logs (NFR-9, TRD T-10) — DONE
 - [x] `DEADAIR_LOG_JSON=1` switches logging to one JSON object per line
 **Verify:** test parses emitted lines as JSON
+
+## Phase 8: episodes and caller hold (no keys needed)
+
+### Task 22: Caller hold decision (FR-6.3) — DONE
+- [x] Callers are held, not put on air, when the next segment reads a serious news item; they go on after it
+- [x] Hold is logged as a call status
+**Verify:** test with a serious item ahead of a waiting caller
+
+### Task 23: Render a full episode (Step 13, acceptance criterion 3) — DONE
+- [x] `python -m deadair record --minutes 15` renders one MP3 + transcript per station, faster than real time
+- [x] The episode includes a feud jab, a scripted caller and a vote result; it appears in `/archive`
+**Verify:** test renders a short episode and checks the file and transcript; manual 15-minute render
+- [x] Also fixed: offline blocks were ~1.5 min (20 s songs); `song_seconds` (150) and `vote_blocks` (6) now in config
+- [x] Also fixed: typed call-in lines are spoken on air in `caller_voice_id`, after moderation, the gate and NFR-7

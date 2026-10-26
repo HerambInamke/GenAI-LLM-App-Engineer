@@ -54,6 +54,9 @@ class FeedConfig(BaseModel):
 class Config(BaseModel):
     budget_usd_per_hour: float = Field(gt=0)
     recording_retention_days: int = Field(14, ge=1)
+    caller_voice_id: str = "TBD-caller-voice"  # voice for typed call-in lines read on air
+    song_seconds: float = Field(150, gt=0)  # one music segment; two per block keeps blocks ~10 min
+    vote_blocks: int = Field(6, ge=1)  # a vote stays open this many blocks (~1 h: one per episode)
     llm: LLMConfig
     pricing: Pricing = Pricing()
     stations: list[Station]

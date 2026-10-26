@@ -47,16 +47,17 @@ async def check_elevenlabs(cfg: Config, http: httpx.AsyncClient) -> list[Check]:
     if not key:
         return [Check("ElevenLabs", "OFF", "no key: synthetic voices")]
     out = []
-    for pid, p in cfg.personas.items():
-        if p.voice_id.startswith("TBD"):
-            out.append(Check(f"voice {pid}", "FAIL", "placeholder voice_id in config/personas"))
+    voices = {pid: p.voice_id for pid, p in cfg.personas.items()} | {"caller": cfg.caller_voice_id}
+    for pid, voice_id in voices.items():
+        if voice_id.startswith("TBD"):
+            out.append(Check(f"voice {pid}", "FAIL", "placeholder voice id in config"))
             continue
         try:
             r = await http.get(
-                f"https://api.elevenlabs.io/v1/voices/{p.voice_id}", headers={"xi-api-key": key}
+                f"https://api.elevenlabs.io/v1/voices/{voice_id}", headers={"xi-api-key": key}
             )
             status = {200: "OK", 401: "FAIL", 404: "FAIL"}.get(r.status_code, "WARN")
-            out.append(Check(f"voice {pid}", status, f"{p.voice_id}: HTTP {r.status_code}"))
+            out.append(Check(f"voice {pid}", status, f"{voice_id}: HTTP {r.status_code}"))
         except httpx.HTTPError as e:
             out.append(Check(f"voice {pid}", "WARN", f"could not check: {e}"))
     return out

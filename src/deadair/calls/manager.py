@@ -24,6 +24,7 @@ MAX_UTTERANCE = 300
 class Turn:
     text: str
     ended_at: float  # monotonic time the caller finished speaking
+    voiced: bool = False  # typed call-in: there is no caller audio, so the station speaks it
 
 
 @dataclass
@@ -75,7 +76,9 @@ class CallManager:
         self._status(c, "queued")
         return c, "queued"
 
-    def hear(self, caller_id: str, text: str, ended_at: float | None = None) -> bool:
+    def hear(
+        self, caller_id: str, text: str, ended_at: float | None = None, voiced: bool = False
+    ) -> bool:
         """A transcribed utterance from a caller. False if the caller was dropped (FR-6.7)."""
         c = self.callers.get(caller_id)
         if not c or c.hung_up or not text.strip():
@@ -86,8 +89,13 @@ class CallManager:
             self.drop(caller_id, "blocklist")
             return False
         if c is self.on_air:
-            c.turns.put_nowait(Turn(text.strip(), ended_at or time.monotonic()))
+            c.turns.put_nowait(Turn(text, ended_at or time.monotonic(), voiced))
         return True
+
+    def hold_waiting(self) -> None:
+        """Keep queued callers waiting a little longer (FR-6.3 'hold for later')."""
+        for c in self.waiting:
+            self._status(c, "held")
 
     def take_next(self) -> Caller | None:
         while self.waiting:

@@ -93,3 +93,43 @@ def test_long_utterance_is_cut(db, tmp_path):
     cm.take_next()
     assert cm.hear(c.id, "word " * 200)
     assert len(c.turns.get_nowait().text) <= 300
+
+
+async def test_caller_held_after_serious_news(db, tmp_path, items):
+    """FR-6.3: a waiting caller is held through the segment after a serious story."""
+    import asyncio
+
+    from deadair.calls.twilio import feed_text_call
+    from deadair.config import load_config
+    from deadair.showrunner.models import BlockPlan, Segment
+    from deadair.station import Station
+
+    st = Station(load_config(), "deadair", db, rival_id="rival")
+    st.calls = CallManager(db, "deadair", tmp_path)
+    serious = next(i for i in items if i.tone == "serious")
+    plan = BlockPlan(
+        segments=[
+            Segment(type="news", host="max", item_ids=[serious.id]),
+            Segment(type="banter", host="juniper"),
+            Segment(type="station_id", host="max"),
+        ]
+    )
+
+    async def fixed_plan(*_):
+        return plan, []
+
+    st.planner.plan = fixed_plan
+    held = []
+    orig = st.calls.hold_waiting
+    st.calls.hold_waiting = lambda: (held.append(True), orig())
+    order = []
+
+    async def emit(ev):
+        if ev.kind == "segment":
+            order.append(ev.segment)
+            if ev.segment == "news" and not st.calls.callers:  # caller rings during the news
+                caller, _ = st.calls.new_call()
+                asyncio.ensure_future(feed_text_call(st.calls, caller, ["Hello there"], gap=0))
+
+    await asyncio.wait_for(st.run_block(emit), timeout=30)
+    assert held and order.index("caller") > order.index("banter")

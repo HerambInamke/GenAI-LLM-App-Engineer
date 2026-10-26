@@ -3,6 +3,7 @@
 python -m deadair text --minutes 20     text-only show printed to the console (Steps 2-4)
 python -m deadair serve                 full station: feed, both stations, audio, web (Step 5+)
 python -m deadair doctor                which providers are live and whether each key works
+python -m deadair record --minutes 15   render one episode per station to recordings/ (Step 13)
 """
 
 import argparse
@@ -10,6 +11,7 @@ import asyncio
 import logging
 import os
 import sys
+from pathlib import Path
 
 from deadair.config import load_config
 from deadair.db import connect
@@ -65,6 +67,9 @@ def main() -> None:
     t.add_argument("--no-poll", action="store_true", help="use what is already in the DB")
     t.add_argument("-v", "--verbose", action="store_true", help="log plans and gate decisions")
     sub.add_parser("doctor", help="check config, feed and every provider key")
+    r = sub.add_parser("record", help="render a whole episode to MP3 + transcript")
+    r.add_argument("--minutes", type=float, default=15)
+    r.add_argument("--no-call", action="store_true", help="skip the scripted caller")
     s = sub.add_parser("serve", help="run the full station and web app")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
@@ -72,6 +77,16 @@ def main() -> None:
     quiet = args.cmd == "text" and not args.verbose
     setup_logging(logging.WARNING if quiet else logging.INFO)
     db_path = os.environ.get("DEADAIR_DB", "data/deadair.db")
+    if args.cmd == "record":
+        import json
+
+        from deadair.record import record_episode
+
+        out = asyncio.run(
+            record_episode(args.minutes, Path("recordings"), db_path, with_call=not args.no_call)
+        )
+        print(json.dumps(out, indent=2))
+        return
     if args.cmd == "doctor":
         from deadair.doctor import render, run
 
