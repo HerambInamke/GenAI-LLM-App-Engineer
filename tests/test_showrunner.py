@@ -108,3 +108,29 @@ async def test_twenty_minute_text_run(tmp_path, monkeypatch, capsys):
     assert await text_show(20, str(path), poll=False) == []
     out = capsys.readouterr().out
     assert "Max Static" in out and "Juniper Vale" in out
+
+
+async def test_dual_station_run_has_no_unsourced_claims(db):
+    """Step 9 test: both stations on the same feed for ~30 min of airtime; one jab per block
+    each; the rival only quotes stored transcripts; no unsourced claim reaches the air."""
+    cfg = load_config()
+    stations = [
+        Station(cfg, "deadair", db, rival_id="rival", seed=1),
+        Station(cfg, "rival", db, rival_id="deadair", seed=2),
+    ]
+    aired = []
+
+    async def emit(ev):
+        if ev.kind == "line":
+            aired.append(ev)
+
+    items = {i.id: i for i in stations[0].feed.active(48)}
+    for _ in range(4):
+        for st in stations:
+            await st.run_block(emit)
+            assert violations(st.current_plan, items) == []
+    assert {e.station for e in aired} == {"deadair", "rival"}
+    for (claims_json,) in db.execute("SELECT claims_json FROM chunks"):
+        for c in json.loads(claims_json):
+            if c["ok"] and (c.get("numbers") or c.get("entities")):
+                assert c["citations"], c
