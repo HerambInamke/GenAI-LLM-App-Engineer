@@ -230,9 +230,15 @@ async def soak(hours: float, kill_at: float, kill_for_h: float) -> dict:
                 raise RuntimeError("TTS provider down (soak kill switch)")
                 yield  # pragma: no cover
 
+        import psutil  # dev dependency; only the soak needs it
+
+        proc = psutil.Process()
+        mem_mb: list[float] = []
         killed = restored = False
         while caster.frames < target and all(not t.done() for t in tasks):
             sim_h = caster.frames * FRAME_S / 3600
+            if len(mem_mb) <= sim_h * 4:  # a sample every simulated 15 minutes
+                mem_mb.append(proc.memory_info().rss / 2**20)
             if not killed and sim_h >= kill_at:
                 caster.tts, killed = DeadTTS(), True
             if killed and not restored and sim_h >= kill_at + kill_for_h:
@@ -251,6 +257,12 @@ async def soak(hours: float, kill_at: float, kill_for_h: float) -> dict:
         "blocks": blocks,
         "unhandled": errors.count + len(crashed),
         "tts_fallbacks": caster.tts_failures,
+        "rss_mb": {
+            "start": round(mem_mb[0]),
+            "peak": round(max(mem_mb)),
+            "end": round(mem_mb[-1]),
+            "samples": [round(m) for m in mem_mb],
+        },
         "finished": datetime.now(UTC).isoformat(),
     }
 
