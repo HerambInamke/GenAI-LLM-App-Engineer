@@ -19,6 +19,8 @@ from starlette.websockets import WebSocketDisconnect
 
 from deadair.audio.broadcast import Broadcaster
 from deadair.audio.tts import get_tts
+from deadair.calls.manager import CallManager
+from deadair.calls.twilio import call_router
 from deadair.config import load_config
 from deadair.db import connect
 from deadair.feed.pollers import poll_all
@@ -52,7 +54,15 @@ class Runtime:
             s.id: Broadcaster(s.id, s.music_style, recordings, self.tts, s.name, realtime)
             for s in self.cfg.stations
         }
+        self.calls = {sid: CallManager(self.db, sid, recordings) for sid in self.stations}
+        for sid, st in self.stations.items():
+            st.calls, st.caster = self.calls[sid], self.casters[sid]
         self.tasks: list[asyncio.Task] = []
+
+    def spawn(self, coro) -> asyncio.Task:
+        task = asyncio.create_task(coro)
+        self.tasks.append(task)
+        return task
 
     def spent_last_hour(self, sid: str) -> float:
         since = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
@@ -125,6 +135,7 @@ def create_app(
 
     app = FastAPI(title="Dead Air", lifespan=lifespan)
     app.state.rt = rt
+    app.include_router(call_router(rt))
 
     def station(sid: str) -> Station:
         if sid not in rt.stations:

@@ -53,6 +53,14 @@
     <div class="msg" id="vote-msg" role="status"></div>
   </section>
 
+  <section class="card">
+    <div class="label">Call in</div>
+    <label for="call-lines" style="display:block;margin:6px 0">Type what you would say, one line per turn (up to 4).</label>
+    <textarea id="call-lines" rows="3" style="width:100%;background:#20242d;color:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit"></textarea>
+    <div class="opts"><button onclick="callIn()">Join the call queue</button></div>
+    <div class="msg" id="call-msg" role="status"></div>
+  </section>
+
   <p><a href="/archive">Episode archive</a></p>
 </main>
 <script>
@@ -94,6 +102,23 @@ async function castVote(id, option) {
   voted[id] = true;
   $("vote-msg").textContent = r.ok ? "Vote counted. The result is applied at the next block." : "You already voted on this one.";
   fetch("/api/now/" + station).then(r => r.json()).then(render);
+}
+
+async function callIn() {
+  const lines = $("call-lines").value.split("
+").map(s => s.trim()).filter(Boolean).slice(0, 4);
+  if (!lines.length) return;
+  const r = await fetch("/api/call/" + station, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({lines}),
+  });
+  const d = await r.json();
+  if (d.status !== "queued") { $("call-msg").textContent = "The line is full, try again soon."; return; }
+  const poll = setInterval(async () => {
+    const s = await (await fetch(`/api/call/${station}/${d.call_id}`)).json();
+    $("call-msg").textContent = s.on_air ? "You are on air: " + s.transcript.slice(-1)[0]
+      : s.hung_up ? "Call ended. Thanks!" : "Waiting in the queue…";
+    if (s.hung_up) clearInterval(poll);
+  }, 1500);
 }
 
 function connect() {
