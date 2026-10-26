@@ -43,9 +43,13 @@ Everything runs offline (template hosts, rule-based gate, synthetic voice). Real
 - [x] Test: 30 simulated minutes of continuous MP3 with no silent frames; live server checked in Chrome
 - [ ] ElevenLabs path not tested live (no key)
 
-## Task 8: Caller line
-- [ ] Twilio webhook + media stream, STT, queue (max 3), barge-in < 300 ms, blocklist, random caller ids
-- [ ] Test: 30 scripted call turns, latency and barge-in measured
+## Task 8: Caller line — DONE (PR #4)
+- [x] Twilio webhook (signature checked) + bidirectional Media Stream, Deepgram streaming STT, DTMF votes
+- [x] Queue (max 3), random caller ids only, blocklist drop, transcripts per call, caller audio kept out of the archive (NFR-8)
+- [x] Energy-VAD barge-in cuts playback within one 50 ms frame; host re-plans on the next turn
+- [x] Text call-in (`POST /api/call/{station}` + player UI) runs the same pipeline with no telephony keys
+- [x] Tests: 30 scripted turns (median latency < 1.5 s, offline providers), 20/20 barge-ins < 300 ms
+- [ ] Twilio + Deepgram not tested live (no keys)
 
 ## Task 9: Rival station — DONE (PR #3)
 - [x] Both stations run in parallel on their own audio clocks; rival quotes `[t:chunk]` transcripts; one jab per block
