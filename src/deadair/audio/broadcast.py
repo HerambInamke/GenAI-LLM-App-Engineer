@@ -172,6 +172,12 @@ class Broadcaster:
         self.record_mp3 = open(base.with_suffix(".mp3"), "wb")  # noqa: SIM115 - held open per block
         self.record_txt = open(base.with_suffix(".txt"), "w", encoding="utf-8")  # noqa: SIM115
 
+    def close(self) -> None:
+        for f in (self.record_mp3, self.record_txt):
+            if f:
+                f.close()
+        self.record_mp3 = self.record_txt = None
+
     def _transcript(self, line: str) -> None:
         if self.record_txt:
             self.record_txt.write(line + "\n")
