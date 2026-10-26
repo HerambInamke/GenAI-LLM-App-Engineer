@@ -6,7 +6,9 @@ ahead of playback.
 """
 
 import asyncio
+import contextlib
 import logging
+import os
 import time
 from collections import deque
 from datetime import UTC, datetime
@@ -41,9 +43,16 @@ class Broadcaster:
         self.bed = BedPlayer(make_bed(style, station_id))
         self.sting = stinger(style)
         self.queue: deque[tuple[np.ndarray, bool]] = deque()  # (samples, ducked)
-        self.caller: deque[np.ndarray] = deque()  # live caller audio mixed on air (FR-6.4)
+        self.caller = np.zeros(0, np.float32)  # live caller audio mixed on air (FR-6.4)
         self.listeners: set[asyncio.Queue] = set()
+        self.phone_taps: set[asyncio.Queue] = set()  # station audio, without callers, for phones
         self.encoder = self._encoder()
+        # NFR-8: the archive copy is encoded without caller audio unless explicitly enabled
+        self.store_call_audio = os.environ.get("DEADAIR_STORE_CALL_AUDIO") == "1"
+        self.record_encoder = self._encoder()
+        self.line_started_at = 0.0  # monotonic time the latest line's first audio was queued
+        self.stop_marks: list[float] = []  # barge-in detection times awaiting a silent frame
+        self.stop_ms: list[float] = []  # NFR-2 samples: detection -> playback stopped
         self.record_mp3 = self.record_txt = None
         self.station_name = station_name or station_id
         self.station_id_audio: np.ndarray | None = None
@@ -69,6 +78,12 @@ class Broadcaster:
         if len(pcm):
             self.queue.append((pcm.astype(np.float32), ducked))
 
+    def add_caller_audio(self, pcm: np.ndarray) -> None:
+        self.caller = np.concatenate([self.caller[-SR * 2 :], pcm])  # keep at most ~2 s queued
+
+    def host_speaking(self) -> bool:
+        return any(ducked for _, ducked in self.queue)
+
     def cut(self) -> float:
         """Barge-in / skip: drop queued speech now. Returns the monotonic time of the cut."""
         self.queue.clear()
@@ -90,13 +105,23 @@ class Broadcaster:
         return out, ducked
 
     def next_frame(self) -> np.ndarray:
+        return self.next_frames()[0]
+
+    def next_frames(self) -> tuple[np.ndarray, np.ndarray]:
+        """(on-air mix, the same mix without caller audio)."""
         speech, ducked = self._take(FRAME)
-        if self.caller:
-            c = self.caller.popleft()[:FRAME]
-            speech[: len(c)] += c
+        if self.stop_marks and not ducked:
+            now = time.monotonic()
+            self.stop_ms += [1000 * (now - t) for t in self.stop_marks]
+            self.stop_marks.clear()
+        caller = np.zeros(FRAME, np.float32)
+        if len(self.caller):
+            c, self.caller = self.caller[:FRAME], self.caller[FRAME:]
+            caller[: len(c)] = c
             ducked = True
         self.speaking_since = (self.speaking_since or time.monotonic()) if ducked else None
-        return self.bed.frame(FRAME, ducked) + speech
+        dry = self.bed.frame(FRAME, ducked) + speech
+        return dry + caller, dry
 
     # ---------- station emitter ----------
     async def _wait_room(self) -> None:
@@ -104,8 +129,11 @@ class Broadcaster:
             await asyncio.sleep(FRAME_S if self.realtime else 0)
 
     async def _speak(self, text: str, voice_id: str) -> None:
+        first = True
         async for pcm in self.tts.synth(text, voice_id):
             self.enqueue(pcm * 0.9, True)
+            if first:
+                self.line_started_at, first = time.monotonic(), False
             await self._wait_room()
 
     async def emit(self, ev: Event) -> None:
@@ -159,11 +187,16 @@ class Broadcaster:
         self.listeners.discard(q)
 
     def tick(self) -> bytes:
-        mp3 = bytes(self.encoder.encode(to_pcm16(self.next_frame())))
+        live, dry = self.next_frames()
+        mp3 = bytes(self.encoder.encode(to_pcm16(live)))
+        archive = mp3 if self.store_call_audio else bytes(self.record_encoder.encode(to_pcm16(dry)))
         self.frames += 1
+        if archive and self.record_mp3:
+            self.record_mp3.write(archive)
+        for q in list(self.phone_taps):
+            with contextlib.suppress(asyncio.QueueFull):
+                q.put_nowait(dry)
         if mp3:
-            if self.record_mp3:
-                self.record_mp3.write(mp3)
             for q in list(self.listeners):
                 try:
                     q.put_nowait(mp3)

@@ -29,6 +29,8 @@ from deadair.showrunner.votes import VoteManager
 
 log = logging.getLogger(__name__)
 VOTE_BLOCKS = 2  # a vote stays open this many blocks, then applies at the next boundary
+CALLER_SILENCE_S = 20.0  # end the call after this much caller silence
+MAX_CALLER_TURNS = 4
 
 
 @dataclass
@@ -95,6 +97,8 @@ class Station:
         self.skip = asyncio.Event()  # admin "skip segment" (FR-9.3)
         self.interrupt = asyncio.Event()  # caller barge-in (FR-6.5)
         self.current_plan: BlockPlan | None = None
+        self.calls = None  # CallManager, attached by the web runtime
+        self.caster = None  # Broadcaster, attached by the web runtime (latency timing)
 
     # ---------- votes at block boundaries (FR-2.4, FR-7.3) ----------
     def force_close_vote(self) -> str | None:
@@ -194,11 +198,13 @@ class Station:
         )
         self.db.commit()
 
-    async def _speak(self, seg: Segment, seg_id: str, emit: Emit) -> str:
+    async def _speak(self, seg: Segment, seg_id: str, emit: Emit, turn=None, caller=None) -> str:
         writer, persona = self.writers[seg.host], self.cfg.personas[seg.host]
         items = [i for i in (self.feed.get(x) for x in seg.item_ids) if i]
         story = self.storylines.get(seg.storyline_id) if seg.storyline_id else None
         context = "\n".join(self.recent)
+        if turn:
+            context += f"\nCaller just said: {turn.text}"
         if seg.type == "feud":
             quotes = self._rival_quotes()
             context += (
@@ -212,7 +218,9 @@ class Station:
         async for raw in writer.chunks(seg, items, story, context):
             if self.skip.is_set() or self.interrupt.is_set():
                 self.skip.clear()
-                return "skipped"
+                interrupted = self.interrupt.is_set()
+                self.interrupt.clear()  # FR-2.6: the caller's next turn re-plans from here
+                return "interrupted" if interrupted else "skipped"
             d = await self.gate.check(
                 raw,
                 segment_id=seg_id,
@@ -238,6 +246,8 @@ class Station:
             if not d.text:
                 continue
             aired.append(d.text)
+            if caller:
+                self.calls.host_said(caller.id, d.text)
             self.recent.append(f"{persona.name}: {d.text}")
             self.memory.remember(
                 self.id, seg.host, d.text, persona.catchphrases if seg.type in JOKEY else []
@@ -253,9 +263,51 @@ class Station:
                     data={"gate": d.result, "chunk_id": d.chunk_id},
                 )
             )
+            if turn and len(aired) == 1 and self.caster:  # NFR-1: caller end -> first host audio
+                ms = 1000 * (self.caster.line_started_at - turn.ended_at)
+                self.calls.latencies_ms.append(ms)
         if story and aired:
             self.storylines.advance(story.id, aired[0][:160], self.block_no)
         return "done"
+
+    async def caller_session(self, block_id: str, emit: Emit) -> None:
+        """Next queued caller on air: greet, answer each turn, thank them (FR-6.3, FR-6.4)."""
+        caller = self.calls.take_next()
+        if not caller:
+            return
+        host = self.hosts[0]
+        seg_id = f"{block_id}-call-{caller.id[:8]}"
+        self.db.execute(
+            "INSERT OR REPLACE INTO segments VALUES (?, ?, 'caller', ?, 'on_air', ?, NULL)",
+            (seg_id, block_id, host, _now()),
+        )
+        self.now.update(segment="caller", hosts=[host])
+        await emit(Event("segment", self.id, host, segment="caller"))
+        greet = Segment(
+            type="caller", host=host, note="greet the caller, ask what is on their mind"
+        )
+        await self._speak(greet, seg_id, emit, caller=caller)
+        for _ in range(MAX_CALLER_TURNS):
+            try:
+                turn = await asyncio.wait_for(caller.turns.get(), CALLER_SILENCE_S)
+            except TimeoutError:
+                break
+            if turn is None:  # hung up or dropped
+                break
+            self.recent.append(f"Caller: {turn.text}")
+            reply = Segment(type="caller", host=host, note="answer the caller in 1-2 sentences")
+            await self._speak(reply, seg_id, emit, turn=turn, caller=caller)
+        if not caller.hung_up:
+            line = "Thanks for calling in, you have been great."
+            self.calls.host_said(caller.id, line)
+            await emit(
+                Event("line", self.id, host, line, self.cfg.personas[host].voice_id, "caller")
+            )
+        self.calls.finish()
+        self.db.execute(
+            "UPDATE segments SET status = 'done', ended_at = ? WHERE id = ?", (_now(), seg_id)
+        )
+        self.db.commit()
 
     async def run_block(self, emit: Emit) -> str:
         block_id, plan = await self.plan_block()
@@ -267,6 +319,8 @@ class Station:
             )
         )
         for i, seg in enumerate(plan.segments):
+            if self.calls and self.calls.waiting and not self.calls.on_air:
+                await self.caller_session(block_id, emit)
             await self.run_segment(seg, block_id, emit, i)
             await emit(Event("sting", self.id))
         cost = self.meter.take()
