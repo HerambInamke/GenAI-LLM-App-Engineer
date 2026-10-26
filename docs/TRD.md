@@ -10,7 +10,7 @@ How the [PRD](PRD.md) is met technically. Component detail is in [architecture.m
 | Web | FastAPI + WebSockets | Stream, votes, admin updates |
 | DB | SQLite (WAL mode) | Postgres optional later |
 | Vector memory | sqlite-vec | One file, no extra service |
-| LLM | Anthropic SDK, structured JSON outputs | Larger model for host lines, small model for gate and tone |
+| LLM | Anthropic SDK, structured JSON outputs | `claude-opus-5-5` for host lines, `claude-haiku-5-5` for planning, gate and tone |
 | TTS | ElevenLabs streaming | ≥ 3 voices, set per persona |
 | STT | Deepgram streaming | Endpointing drives barge-in |
 | Telephony | Twilio Voice Media Streams | μ-law 8 kHz in/out |

@@ -1,0 +1,26 @@
+# Seed storylines (FR-2.2). Fictional only. station: deadair | rival | shared
+# `vote` is the episode vote the showrunner opens for this storyline (FR-7.1).
+- id: jingle-war
+  station: shared
+  name: The Jingle War
+  participants: [max, juniper, dex, velma]
+  summary: KRVL claims Dead Air stole its jingle; Dead Air says the KRVL jingle was always flat.
+  vote:
+    question: Does Max apologize to KRVL or double down?
+    options: [Apologize, Double down]
+- id: fridge-sandwich
+  station: deadair
+  name: The Fridge Sandwich
+  participants: [max, juniper]
+  summary: A sandwich labelled MAX keeps appearing in the studio fridge. Nobody admits to it.
+  vote:
+    question: Who is leaving the sandwich?
+    options: [Juniper, The intern plant, A KRVL spy]
+- id: scorecard
+  station: rival
+  name: The Scorecard
+  participants: [dex, velma]
+  summary: Velma keeps a running tally of Dead Air on-air mistakes.
+  vote:
+    question: Should Velma read the scorecard on air?
+    options: [Read it, Burn it]
