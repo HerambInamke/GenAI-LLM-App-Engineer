@@ -155,7 +155,8 @@ class FactGate:
                 decision.chunk_id,
                 segment_id,
                 host,
-                text,
+                # what aired, with citations; for a fallback, the last text that was rejected
+                " ".join(r.sentence for r in (kept or reviews)),
                 decision.result,
                 json.dumps(decision.claims),
                 datetime.now(UTC).isoformat(),

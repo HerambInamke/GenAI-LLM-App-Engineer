@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.websockets import WebSocketDisconnect
 
 from deadair.audio.broadcast import Broadcaster
@@ -112,10 +112,17 @@ class Runtime:
         for t in self.tasks:
             with suppress(asyncio.CancelledError):
                 await t
+        for c in self.casters.values():
+            c.close()
 
 
 class VoteIn(BaseModel):
     option: str
+
+
+class RatingIn(BaseModel):
+    score: int = Field(ge=1, le=5)
+    comment: str = Field("", max_length=500)
 
 
 def create_app(
@@ -215,6 +222,18 @@ def create_app(
         if not ok:
             raise HTTPException(409, "already voted or invalid option")
         return {"ok": True, "tally": st.votes.tally(v.id)}
+
+    @app.post("/api/rating")
+    def rate(body: RatingIn, request: Request, response: Response) -> dict:
+        """Listener rating form (Step 10). One rating per browser; a new one replaces it."""
+        rater = request.cookies.get("voter") or uuid.uuid4().hex
+        response.set_cookie("voter", rater, httponly=True, samesite="lax", max_age=86400 * 30)
+        rt.db.execute(
+            "INSERT OR REPLACE INTO ratings VALUES (?, ?, ?, ?)",
+            (rater, body.score, body.comment, datetime.now(UTC).isoformat()),
+        )
+        rt.db.commit()
+        return {"ok": True}
 
     @app.get("/archive", response_class=HTMLResponse)
     def archive_page() -> str:

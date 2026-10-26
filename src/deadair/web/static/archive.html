@@ -19,9 +19,31 @@
 <main>
   <h1>Archive</h1>
   <p><a href="/">Back to the live stream</a></p>
+  <form id="rate" style="margin:16px 0;padding:14px;border:1px solid #2a2e38;border-radius:12px">
+    <strong>Rate the show</strong>
+    <fieldset style="border:0;padding:6px 0;margin:0">
+      <legend style="color:#9a9890">1 = switch it off, 5 = would listen all night</legend>
+      <label><input type="radio" name="score" value="1"> 1</label>
+      <label><input type="radio" name="score" value="2"> 2</label>
+      <label><input type="radio" name="score" value="3"> 3</label>
+      <label><input type="radio" name="score" value="4"> 4</label>
+      <label><input type="radio" name="score" value="5"> 5</label>
+    </fieldset>
+    <label for="comment">Comment (optional)</label>
+    <input id="comment" maxlength="500" style="width:100%;margin:6px 0;padding:8px;background:#20242d;color:inherit;border:1px solid #2a2e38;border-radius:8px">
+    <button style="padding:8px 14px">Send rating</button> <span id="rate-msg" role="status"></span>
+  </form>
   <ul id="list"><li>Loading…</li></ul>
 </main>
 <script>
+document.getElementById("rate").onsubmit = async (e) => {
+  e.preventDefault();
+  const score = Number(new FormData(e.target).get("score"));
+  if (!score) { document.getElementById("rate-msg").textContent = "Pick a score first."; return; }
+  const r = await fetch("/api/rating", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({score, comment: document.getElementById("comment").value})});
+  document.getElementById("rate-msg").textContent = r.ok ? "Thanks!" : "Could not save that.";
+};
 fetch("/api/archive").then(r => r.json()).then(rows => {
   const list = document.getElementById("list");
   if (!rows.length) { list.innerHTML = "<li>No recordings yet.</li>"; return; }

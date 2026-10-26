@@ -68,3 +68,11 @@ def test_archive_lists_and_blocks_traversal(client):
     assert rows[0]["file"] == "20260101-000000_b1.mp3"
     assert client.get("/archive/deadair/20260101-000000_b1.mp3").status_code == 200
     assert client.get("/archive/deadair/..%2F..%2Fpyproject.toml").status_code in (400, 404)
+
+
+def test_rating_one_per_browser(client):
+    assert client.post("/api/rating", json={"score": 6}).status_code == 422
+    assert client.post("/api/rating", json={"score": 4, "comment": "fun"}).status_code == 200
+    assert client.post("/api/rating", json={"score": 5}).status_code == 200
+    rows = client.app.state.rt.db.execute("SELECT score FROM ratings").fetchall()
+    assert [r[0] for r in rows] == [5]

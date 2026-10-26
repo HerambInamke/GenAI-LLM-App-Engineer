@@ -4,6 +4,7 @@ shortcut: beds and stingers are generated procedurally; drop royalty-free 24 kHz
 assets/music/<station>/ to use real tracks instead.
 """
 
+import os
 import wave
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from deadair.audio.tts import SR
 DUCK_DB = -12.0
 DUCK = 10 ** (DUCK_DB / 20)  # ~0.25 linear
 BED_LEVEL = 0.22
-ASSETS = Path(__file__).resolve().parents[3] / "assets" / "music"
+ASSETS = Path(os.environ.get("DEADAIR_ASSETS", "assets")) / "music"
 
 STYLES = {  # (root Hz per chord, seconds per chord)
     "lo-fi synth": ([220.0, 174.6, 196.0, 164.8], 4.0),

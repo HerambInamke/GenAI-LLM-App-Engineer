@@ -1,12 +1,13 @@
 """Load and validate YAML config: stations, personas, feeds, budget (NFR-10)."""
 
+import os
 from pathlib import Path
 from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
-CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+CONFIG_DIR = Path(os.environ.get("DEADAIR_CONFIG", Path(__file__).resolve().parents[2] / "config"))
 
 
 class Persona(BaseModel):

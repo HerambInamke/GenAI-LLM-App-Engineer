@@ -24,42 +24,42 @@ config ─▶ feed ─▶ host writer ─▶ fact gate ─▶ two hosts + memory
 
 ## Phases
 
-### Phase 1: Foundation (Steps 0–1) — **in progress**
+### Phase 1: Foundation (Steps 0–1) — done (PR #1, #2)
 - [x] T0 Repo, env, Dockerfile, pre-commit, config loader + YAML schema
 - [x] T1 Feed: normalizer, dedup, tone rules, SQLite store, RSS poller
-- [ ] T1b Tone LLM fallback, NewsAPI poller, 5-minute polling service
+- [x] T1b Tone LLM fallback, NewsAPI poller, 5-minute polling service
 
 **Checkpoint:** `pytest` green; `python -m deadair.feed` fills the DB from live RSS.
 
-### Phase 2: Talk radio in text (Steps 2–4)
-- [ ] T2 Anthropic provider + fake; one host reads 5 headlines in cited chunks
-- [ ] T3 Claim extractor + citation verifier + regen/fallback + gate log (50-claim test)
-- [ ] T4 Second host, turn-taking, sqlite-vec memory, repetition check (20-min run)
+### Phase 2: Talk radio in text (Steps 2–4) — done (PR #2)
+- [x] T2 Anthropic provider + fake; one host reads 5 headlines in cited chunks
+- [x] T3 Claim extractor + citation verifier + regen/fallback + gate log (50-claim test)
+- [x] T4 Second host, turn-taking, sqlite-vec memory, repetition check (20-min run)
 
 **Checkpoint:** a 20-minute text show with zero uncited claims and no 24 h repeats.
 
-### Phase 3: Radio (Step 5)
-- [ ] T5 TTS client (3 voices), mixer with ducking, stingers, MP3 encoder, stream, minimal player
+### Phase 3: Radio (Step 5) — done (PR #3)
+- [x] T5 TTS client (3 voices), mixer with ducking, stingers, MP3 encoder, stream, minimal player
 
 **Checkpoint:** the stream plays in a browser for 30 minutes without dropouts.
 
-### Phase 4: Show (Steps 6–7)
-- [ ] T6 Block planner (JSON schema), storyline registry, tone + beat rules
-- [ ] T7 Vote manager, web buttons, boundary application, on-air announcement
+### Phase 4: Show (Steps 6–7) — done (PR #2, #3)
+- [x] T6 Block planner (JSON schema), storyline registry, tone + beat rules
+- [x] T7 Vote manager, web buttons, boundary application, on-air announcement
 
 **Checkpoint:** 3-block simulated run passes rule checks; 50 simulated votes apply correctly.
 
-### Phase 5: Live and rivalry (Steps 8–9)
-- [ ] T8 Twilio webhook, STT, queue, barge-in, blocklist, privacy
-- [ ] T9 Rival showrunner, personas, feud scheduler
+### Phase 5: Live and rivalry (Steps 8–9) — done (PR #3, #4)
+- [x] T8 Twilio webhook, STT, queue, barge-in, blocklist, privacy
+- [x] T9 Rival showrunner, personas, feud scheduler
 
 **Checkpoint:** 30 call turns, median < 1.5 s, barge-in OK in 95%; 30-minute dual run with no unsourced claims.
 
-### Phase 6: Proof and ship (Steps 10–13)
-- [ ] T10 Eval harness (200 planted claims, repetition, latency, ratings) → one report
-- [ ] T11 Admin page, recorder, archive
-- [ ] T12 6-hour soak, degradation paths, budget logging, deploy
-- [ ] T13 15-minute demo episode, README results table
+### Phase 6: Proof and ship (Steps 10–13) — done (PR #5) except the live deploy and real-key runs
+- [x] T10 Eval harness (200 planted claims, repetition, latency, ratings) → one report
+- [x] T11 Admin page, recorder, archive
+- [x] T12 degradation paths, budget logging, Dockerfile, 30-min accelerated soak · [ ] 6-hour soak · [ ] public deploy
+- [x] T13 README results table and demo script · [ ] record the 15-minute demo with real voices
 
 ## Risks and mitigations
 

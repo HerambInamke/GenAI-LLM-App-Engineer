@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import hashlib
 import hmac
@@ -6,14 +5,10 @@ import statistics
 
 import numpy as np
 
-from deadair.audio.broadcast import Broadcaster
-from deadair.audio.tts import SR, SynthTTS
 from deadair.calls.audio import down_to_phone, mulaw_decode, mulaw_encode, up_to_station
-from deadair.calls.bargein import BargeIn
 from deadair.calls.manager import CallManager
-from deadair.calls.twilio import feed_text_call, valid_signature
-from deadair.config import load_config
-from deadair.station import Station
+from deadair.calls.twilio import valid_signature
+from deadair.eval.measure import bargein_stop, call_latency
 
 
 def test_mulaw_roundtrip_and_resample():
@@ -57,51 +52,12 @@ async def test_thirty_scripted_call_turns(db, tmp_path):
 
     Offline providers, so this measures the pipeline, not real LLM/TTS speed.
     """
-    cfg = load_config()
-    st = Station(cfg, "deadair", db, rival_id="rival", seed=9)
-    caster = Broadcaster("deadair", "lo-fi synth", tmp_path, SynthTTS(), realtime=False)
-    st.calls, st.caster = CallManager(db, "deadair", tmp_path), caster
-    clock = asyncio.create_task(caster.run())
-
-    async def loop():
-        while True:
-            await st.run_block(caster.emit)
-
-    show = asyncio.create_task(loop())
-    for batch in range(5):  # 5 batches x 2 callers x 3 turns = 30 turns
-        feeders = []
-        for k in range(2):
-            caller, status = st.calls.new_call()
-            assert status == "queued"
-            lines = [f"Caller {batch}-{k} line {n}, what do you think?" for n in range(3)]
-            feeders.append(asyncio.create_task(feed_text_call(st.calls, caller, lines, gap=0)))
-        await asyncio.wait_for(asyncio.gather(*feeders), timeout=60)
-    show.cancel()
-    clock.cancel()
-    lat = st.calls.latencies_ms
-    assert len(lat) == 30, len(lat)
-    assert statistics.median(lat) < 1500
-    transcript = (tmp_path / "calls").glob("*.txt")
-    assert all("host:" in p.read_text() for p in transcript)
+    lat = await call_latency(db, tmp_path, turns=30)
+    assert len(lat) == 30 and statistics.median(lat) < 1500
+    assert all("host:" in p.read_text() for p in (tmp_path / "calls").glob("*.txt"))
 
 
 async def test_barge_in_stops_playback_fast(db, tmp_path):
     """Step 8 test: playback stops within 300 ms of detected caller speech in >= 95% of trials."""
-    caster = Broadcaster("deadair", "lo-fi synth", tmp_path, SynthTTS(), realtime=True)
-    cm = CallManager(db, "deadair", tmp_path)
-    station = type("S", (), {"interrupt": asyncio.Event()})()
-    clock = asyncio.create_task(caster.run())
-    caller, _ = cm.new_call()
-    cm.take_next()
-    barge = BargeIn(station, caster, cm)
-    loud = (0.3 * np.sin(2 * np.pi * 200 * np.arange(160) / 8000)).astype(np.float32)
-    for _ in range(20):
-        caster.enqueue(np.full(SR * 3, 0.1, np.float32), True)  # host talking
-        await asyncio.sleep(0.12)
-        assert any(barge.feed(caller, loud) for _ in range(4))  # 80 ms of caller speech
-        await asyncio.sleep(0.15)
-    clock.cancel()
-    assert len(caster.stop_ms) == 20
-    within = sum(ms < 300 for ms in caster.stop_ms)
-    assert within >= 19, caster.stop_ms
-    assert station.interrupt.is_set()
+    stops = await bargein_stop(db, tmp_path, trials=20)
+    assert len(stops) == 20 and sum(ms < 300 for ms in stops) >= 19, stops
