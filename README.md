@@ -17,12 +17,13 @@ Open <http://localhost:8000>: press play, switch to the rival, vote, or call in 
 | Command | What it does |
 |---|---|
 | `python -m deadair serve` | Both stations, live MP3 streams, web player, admin, archive |
+| `python -m deadair record --minutes 15` | Render one episode per station (MP3 + transcript) with a feud, a caller and a vote; shows up in `/archive` |
 | `python -m deadair doctor` | Which providers are live, and whether each key and persona voice id works |
 | `python -m deadair text --minutes 20` | Text-only show in the console (fast way to see the writing) |
 | `python -m deadair.feed --once` | Poll the news sources into SQLite |
 | `python -m deadair.eval report [--live]` | One Markdown report with every NFR number (`reports/eval-report.md`) |
 | `python -m deadair.eval soak --hours 6` | Accelerated soak with a TTS outage in the middle |
-| `pytest -q` | 66 tests, all offline (also run by GitHub Actions on every PR) |
+| `pytest -q` | 76 tests, all offline (also run by GitHub Actions on every PR) |
 
 Docker: `docker build -t deadair . && docker run -p 8000:8000 --env-file .env -v ./data:/app/data -v ./recordings:/app/recordings deadair`
 
@@ -74,7 +75,7 @@ From `python -m deadair.eval report` (2026-10-26, offline providers, station log
 
 ## Configuration
 
-Everything tunable is YAML in `config/` (NFR-10): `stations.yaml` (stations, models, budget), `personas/*.yaml` (hosts, voices, catchphrases, never-do rules), `feeds.yaml`, `storylines.yaml` (running storylines and their votes), `blocklist.txt`.
+Everything tunable is YAML in `config/` (NFR-10): `stations.yaml` (stations, models, budget), `personas/*.yaml` (hosts, voices, catchphrases, never-do rules), `feeds.yaml`, `storylines.yaml` (running storylines and their votes), `blocklist.txt`. `stations.yaml` also holds voice prices, song length, vote length, recording retention and the caller voice.
 
 | Provider | Env var | Without it |
 |---|---|---|

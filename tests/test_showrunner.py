@@ -68,6 +68,7 @@ async def test_three_block_station_run(db):
     """Step 6 test: 3 simulated blocks respect rules, advance storylines once per block,
     apply the vote at a boundary and never air an unsourced claim."""
     cfg = load_config()
+    cfg.vote_blocks = 2  # close the vote inside this 3-block run
     st = Station(cfg, "deadair", db, rival_id="rival", seed=3)
     lines = []
 

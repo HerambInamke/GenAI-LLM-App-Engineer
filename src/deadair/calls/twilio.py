@@ -175,7 +175,7 @@ async def feed_text_call(
             return
         await asyncio.sleep(gap)
         heard = len(caller.transcript)
-        if not cm.hear(caller.id, line):
+        if not cm.hear(caller.id, line, voiced=True):
             return
         while len(caller.transcript) <= heard + 1 and not caller.hung_up:
             if time.monotonic() > deadline:

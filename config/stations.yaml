@@ -1,5 +1,8 @@
 # Stations, budgets and models (NFR-10). Persona ids refer to config/personas/<id>.yaml.
 budget_usd_per_hour: 2.0
+caller_voice_id: TBD-caller-voice  # ElevenLabs voice for typed call-in lines
+song_seconds: 150  # length of each music segment
+vote_blocks: 6  # a listener vote stays open this many blocks (~one hour, FR-7.1)
 recording_retention_days: 14  # older block recordings and call transcripts are deleted
 pricing:  # estimates: check them against your ElevenLabs and Deepgram plans
   tts_usd_per_1k_chars: 0.15

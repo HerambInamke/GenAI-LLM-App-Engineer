@@ -28,7 +28,6 @@ from deadair.showrunner.storylines import StorylineRegistry
 from deadair.showrunner.votes import VoteManager
 
 log = logging.getLogger(__name__)
-VOTE_BLOCKS = 2  # a vote stays open this many blocks, then applies at the next boundary
 CALLER_SILENCE_S = 20.0  # end the call after this much caller silence
 MAX_CALLER_TURNS = 4
 
@@ -112,7 +111,7 @@ class Station:
     def _boundary_votes(self) -> list[Segment]:
         """Close a due vote, apply it to its storyline, announce it, and open the next one."""
         active = self.votes.active(self.id)
-        if active and self.block_no - self.vote_opened_block >= VOTE_BLOCKS:
+        if active and self.block_no - self.vote_opened_block >= self.cfg.vote_blocks:
             self.force_close_vote()
             active = None
         out = [self._apply(self.votes.get(vid)) for vid in self.unapplied]
@@ -191,7 +190,7 @@ class Station:
         await emit(Event("segment", self.id, seg.host, segment=seg.type, data={"note": seg.note}))
         status = "done"
         if seg.type == "music":
-            await emit(Event("music", self.id, seconds=20.0))
+            await emit(Event("music", self.id, seconds=self.cfg.song_seconds))
         else:
             status = await self._speak(seg, seg_id, emit)
         self.db.execute(
@@ -273,6 +272,13 @@ class Station:
             self.storylines.advance(story.id, aired[0][:160], self.block_no)
         return "done"
 
+    async def _air_caller_line(self, turn, seg_id: str, emit: Emit) -> None:
+        """Typed caller words are voiced only if they pass moderation, the fact gate and NFR-7."""
+        d = await self.gate.check(turn.text, segment_id=seg_id, host="caller", people_ok=False)
+        if d.text:
+            voice = self.cfg.caller_voice_id
+            await emit(Event("line", self.id, "caller", d.text, voice, "caller"))
+
     async def caller_session(self, block_id: str, emit: Emit) -> None:
         """Next queued caller on air: greet, answer each turn, thank them (FR-6.3, FR-6.4)."""
         caller = self.calls.take_next()
@@ -298,6 +304,8 @@ class Station:
             if turn is None:  # hung up or dropped
                 break
             self.recent.append(f"Caller: {turn.text}")
+            if turn.voiced:  # text call-in: speak the caller's line on air, through the gate
+                await self._air_caller_line(turn, seg_id, emit)
             reply = Segment(type="caller", host=host, note="answer the caller in 1-2 sentences")
             await self._speak(reply, seg_id, emit, turn=turn, caller=caller)
         if not caller.hung_up:
@@ -321,10 +329,17 @@ class Station:
                 data={"block_id": block_id, "segments": [s.type for s in plan.segments]},
             )
         )
+        prev_serious = False
         for i, seg in enumerate(plan.segments):
             if self.calls and self.calls.waiting and not self.calls.on_air:
-                await self.caller_session(block_id, emit)
+                if prev_serious:  # FR-6.3 hold: no cheerful caller straight after a serious story
+                    self.calls.hold_waiting()
+                else:
+                    await self.caller_session(block_id, emit)
             await self.run_segment(seg, block_id, emit, i)
+            prev_serious = seg.type == "news" and any(
+                (it := self.feed.get(x)) and it.tone == "serious" for x in seg.item_ids
+            )
             await emit(Event("sting", self.id))
         cost = self.meter.take()
         self.db.execute("UPDATE blocks SET cost_usd = ? WHERE id = ?", (cost, block_id))

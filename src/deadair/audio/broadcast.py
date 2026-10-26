@@ -56,8 +56,12 @@ class Broadcaster:
         tts,
         station_name: str = "",
         realtime: bool = True,
+        render: bool = False,
     ):
         self.id, self.style, self.tts, self.realtime = station_id, style, tts, realtime
+        # render mode (episode files): the clock advances only while programme audio is queued,
+        # so slow providers lengthen the render instead of filling the file with music bed
+        self.render = render
         self.dir = recordings / station_id
         self.dir.mkdir(parents=True, exist_ok=True)
         self.bed = BedPlayer(make_bed(style, station_id))
@@ -162,7 +166,10 @@ class Broadcaster:
 
     async def emit(self, ev: Event) -> None:
         if ev.kind == "block":
-            self.rotate(ev.data.get("block_id", "block"))
+            if not self.render:  # an episode render keeps one file
+                self.rotate(ev.data.get("block_id", "block"))
+        elif ev.kind == "segment":
+            self._transcript(f"[{ev.segment}]")
         elif ev.kind == "line":
             self._transcript(f"{ev.host}: {ev.text}")
             try:
@@ -237,6 +244,9 @@ class Broadcaster:
     async def run(self) -> None:
         start = time.monotonic()
         while True:
+            if self.render and not self.queue and not len(self.caller):
+                await asyncio.sleep(0.005)
+                continue
             self.tick()
             if self.realtime:
                 await asyncio.sleep(max(0.0, start + self.frames * FRAME_S - time.monotonic()))
