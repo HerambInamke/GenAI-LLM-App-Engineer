@@ -15,7 +15,7 @@ AI-run 24/7 radio station. Requirements: `req.md` (source of truth). Plan: `docs
 - All tunables in `config/*.yaml`, never hard-coded (NFR-10).
 - Never store or log phone numbers; callers are `uuid4` ids (FR-6.6).
 - Serious feed items are never used for jokes (FR-2.5).
-- Default models: `claude-sonnet-5-5` for host lines, `claude-haiku-5-5` for gate/tone (set in `config/stations.yaml`).
+- Default models: `claude-opus-5-5` for host lines, `claude-haiku-5-5` for gate/tone (set in `config/stations.yaml`).
 - Update `tasks/todo.md` checkboxes when a task's acceptance criteria pass.
 
 ## Local-only folders (gitignored)
