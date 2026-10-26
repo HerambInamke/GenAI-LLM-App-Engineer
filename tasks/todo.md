@@ -32,26 +32,30 @@ Everything runs offline (template hosts, rule-based gate, synthetic voice). Real
 ## Task 7: Voting — core DONE (PR #2), web buttons in Task 5
 - [x] Vote manager, one vote per voter, keypad digits, apply at block boundary, on-air announcement
 - [x] 50 simulated votes test
-- [ ] Web vote buttons (with Task 5)
+- [x] Web vote buttons, one vote per browser session (PR #3)
 
 ## Checkpoint B — text show works end to end
 - [x] `python -m deadair text --minutes 20`
 
-## Task 5: Streaming TTS and audio pipeline
-- [ ] TTS (ElevenLabs + offline synthetic voice), music bed with ~12 dB ducking, stingers, MP3 encoder
-- [ ] Stream server + minimal web player with vote buttons and rival toggle; recorder per block
-- [ ] Test: stream produces continuous MP3 for a simulated 30 minutes
+## Task 5: Streaming TTS and audio pipeline — DONE (PR #3)
+- [x] TTS (ElevenLabs streaming PCM + offline synthetic voice), generated bed with 12 dB ducking, stingers, MP3 via lameenc
+- [x] HTTP MP3 stream, web player with vote buttons and rival toggle, recorder per block (MP3 + transcript)
+- [x] Test: 30 simulated minutes of continuous MP3 with no silent frames; live server checked in Chrome
+- [ ] ElevenLabs path not tested live (no key)
 
 ## Task 8: Caller line
 - [ ] Twilio webhook + media stream, STT, queue (max 3), barge-in < 300 ms, blocklist, random caller ids
 - [ ] Test: 30 scripted call turns, latency and barge-in measured
 
-## Task 9: Rival station
-- [ ] Second station running in parallel, transcript quoting, feud cap
+## Task 9: Rival station — DONE (PR #3)
+- [x] Both stations run in parallel on their own audio clocks; rival quotes `[t:chunk]` transcripts; one jab per block
+- [x] Test: dual-station run with no unsourced claims
 
 ## Task 10: Evaluation harness
 - [ ] One report with NFR-1/2/3/5/6 numbers
 
-## Task 11: Admin page and archive
+## Task 11: Admin page and archive — DONE (PR #3)
+- [x] Password-protected admin: plan, storylines, gate log, call queue, cost; skip segment; force-close vote
+- [x] Archive page lists, plays and downloads per-block MP3s and transcripts
 ## Task 12: Hardening and deploy
 ## Task 13: Demo assets
