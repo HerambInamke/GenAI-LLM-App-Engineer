@@ -55,11 +55,19 @@ Everything runs offline (template hosts, rule-based gate, synthetic voice). Real
 - [x] Both stations run in parallel on their own audio clocks; rival quotes `[t:chunk]` transcripts; one jab per block
 - [x] Test: dual-station run with no unsourced claims
 
-## Task 10: Evaluation harness
-- [ ] One report with NFR-1/2/3/5/6 numbers
+## Task 10: Evaluation harness — DONE (PR #5)
+- [x] `python -m deadair.eval report [--live]` writes one report: NFR-1/2/3/4/5/6, unsourced claims, ratings
+- [x] Planted-error set (100 false + 100 true), repetition checker, latency and barge-in runs
+- [x] Listener rating form on `/archive` (one per browser)
+- [ ] Collect 10 real listener ratings
 
-## Task 11: Admin page and archive — DONE (PR #3)
-- [x] Password-protected admin: plan, storylines, gate log, call queue, cost; skip segment; force-close vote
-- [x] Archive page lists, plays and downloads per-block MP3s and transcripts
-## Task 12: Hardening and deploy
-## Task 13: Demo assets
+## Task 12: Hardening and deploy — mostly DONE (PR #5)
+- [x] Accelerated soak with a TTS outage: 30-minute run passed (0 unhandled, bed + station ID fallback)
+- [ ] Full 6-hour soak (the accelerated 6 h run was stopped: the machine ran low on memory)
+- [x] Crash fallback per block, hourly budget cap, per-block cost logging
+- [x] Dockerfile (built and started locally), `PORT` support for Railway/Render
+- [ ] Real-time 6-hour soak and a public deploy with a phone number (needs accounts and keys)
+
+## Task 13: Demo assets — partly DONE (PR #5)
+- [x] README with architecture diagram, results table, demo script
+- [ ] Record a 15-minute episode with real voices, a live feud and a phone caller (needs keys)

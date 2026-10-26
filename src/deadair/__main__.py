@@ -64,7 +64,7 @@ def main() -> None:
     t.add_argument("-v", "--verbose", action="store_true", help="log plans and gate decisions")
     s = sub.add_parser("serve", help="run the full station and web app")
     s.add_argument("--host", default="127.0.0.1")
-    s.add_argument("--port", type=int, default=8000)
+    s.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
     args = ap.parse_args()
     quiet = args.cmd == "text" and not args.verbose
     logging.basicConfig(

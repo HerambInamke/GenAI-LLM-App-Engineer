@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS memory_items (
   created_at TEXT NOT NULL, tags TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS memory_host_time ON memory_items(host, created_at);
+CREATE TABLE IF NOT EXISTS ratings (
+  rater_id TEXT PRIMARY KEY, score INTEGER NOT NULL CHECK (score BETWEEN 1 AND 5),
+  comment TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+);
 """
 
 

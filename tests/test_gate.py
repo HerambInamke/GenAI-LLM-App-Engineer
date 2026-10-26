@@ -118,3 +118,14 @@ def test_fuzzy_entity_match():
 
 def test_fixture_items_unique():
     assert len({i.id for i in fixture_items()}) == 20
+
+
+async def test_log_stores_aired_text_after_regen(gate, db, items):
+    it = items[1]
+
+    async def regen(text, reasons):
+        return f"{it.title} [f:{it.id}]."
+
+    await gate.check("Kenya plants 41 million trees.", segment_id="seg-r", host="max", regen=regen)
+    row = db.execute("SELECT text FROM chunks WHERE segment_id = 'seg-r'").fetchone()
+    assert row["text"] == f"{it.title} [f:{it.id}]."
