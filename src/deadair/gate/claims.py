@@ -1,4 +1,4 @@
-"""Claim extraction and deterministic citation checks (FR-4.1 to FR-4.3)."""
+"""Claim extraction and deterministic citation checks (FR-4.1, FR-4.2, FR-4.3)."""
 
 import re
 from collections.abc import Callable

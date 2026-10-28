@@ -1,4 +1,5 @@
-"""Listener votes (FR-7). One vote per voter id; results apply at the next block boundary."""
+"""Listener votes (FR-7). One vote per voter id; results apply at the next block boundary.
+Votes, casts and outcomes are stored for the eval report (FR-7.4)."""
 
 import json
 import sqlite3

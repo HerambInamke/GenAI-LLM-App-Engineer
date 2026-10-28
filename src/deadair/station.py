@@ -1,5 +1,7 @@
 """One station's programming loop: plan block -> write chunks -> gate -> emit (docs/Appflow.md).
 
+Each station, the rival included, runs its own loop, hosts and voices (FR-8.1).
+
 `emit` is any async callable taking an Event. The audio pipeline is one emitter (it returns once
 the line has been played); the text runner just prints.
 """
@@ -78,7 +80,7 @@ class Station:
         allow |= {w.lower() for p in cfg.personas.values() for w in p.name.split()}
         allow |= {w.lower() for s in self.storylines.list(status=None) for w in s.name.split()}
         allow |= {"krvl", "dead", "air", "max", "juniper", "dex", "velma"}
-        self.gate = FactGate(
+        self.gate = FactGate(  # same gate for the rival: rude, never invented (FR-8.4)
             db, allow, llm, cfg.llm.fast_model, tuple(s.name for s in cfg.stations)
         )
         self.writers = {
