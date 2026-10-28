@@ -175,6 +175,7 @@ def create_app(
         }
 
     # ---------- public ----------
+    # player: live segment, hosts, vote and rival toggle (FR-9.1, FR-9.2)
     @app.get("/", response_class=HTMLResponse)
     def player() -> str:
         return (STATIC / "index.html").read_text(encoding="utf-8")
@@ -183,7 +184,7 @@ def create_app(
     def healthz() -> dict:
         return {"ok": True, "stations": {s: rt.casters[s].frames for s in rt.casters}}
 
-    @app.get("/stream/{sid}.mp3")
+    @app.get("/stream/{sid}.mp3")  # HTTP chunked MP3 (FR-5.5)
     async def stream(sid: str, request: Request) -> StreamingResponse:
         station(sid)
         q = rt.casters[sid].subscribe()
@@ -245,6 +246,7 @@ def create_app(
         rt.db.commit()
         return {"ok": True}
 
+    # archive: recorded episodes as MP3 downloads (FR-9.4)
     @app.get("/archive", response_class=HTMLResponse)
     def archive_page() -> str:
         return (STATIC / "archive.html").read_text(encoding="utf-8")
